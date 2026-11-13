@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lliga Catalana de Tennis Platja</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Paleta: vermell, blanc i negre (línia FCT). Tot el color surt d'aquestes variables.
+   Només el vermell fa d'accent; l'èxit/avís s'indiquen amb text i grisos, no amb altres colors. */
+:root{
+  --bg:#eee6d6; --surface:#ffffff; --soft:#f2f2f2; --ink:#111111; --muted:#555555; --line:#b8b8b8; --line-soft:#dcdcdc; --shadow:0 1px 3px rgba(0,0,0,.12);
+  --accent:#c8102e; --accent-ink:#ffffff; --ball:#111111;
+  --hdr:#111111; --hdr-ink:#ffffff;
+  --warn:#111111; --warn-bg:#f1f1f1; --ok:#111111; --ok-bg:#e6e6e6; --bad:#a30d1f; --bad-bg:#fde8ea;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#050505; --surface:#181818; --soft:#242424; --ink:#ffffff; --muted:#b5b5b5; --line:#4a4a4a; --line-soft:#2e2e2e; --shadow:0 1px 3px rgba(0,0,0,.6);
+  --accent:#ff4b55; --accent-ink:#111111; --ball:#ffffff;
+  --hdr:#000000; --hdr-ink:#ffffff;
+  --warn:#ffffff; --warn-bg:#222222; --ok:#ffffff; --ok-bg:#2b2b2b; --bad:#ff8088; --bad-bg:#3b1519; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#050505; --surface:#181818; --soft:#242424; --ink:#ffffff; --muted:#b5b5b5; --line:#4a4a4a; --line-soft:#2e2e2e; --shadow:0 1px 3px rgba(0,0,0,.6);
+  --accent:#ff4b55; --accent-ink:#111111; --ball:#ffffff;
+  --hdr:#000000; --hdr-ink:#ffffff;
+  --warn:#ffffff; --warn-bg:#222222; --ok:#ffffff; --ok-bg:#2b2b2b; --bad:#ff8088; --bad-bg:#3b1519; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--body)}
+header{background:var(--hdr);color:var(--hdr-ink);border-bottom:4px solid var(--accent);padding:20px max(16px,calc((100% - 860px)/2 + 16px)) 14px;margin:0 0 4px}
+h1{font:700 1.9rem/1.05 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance;text-transform:uppercase}
+h2{font:700 1.5rem/1.1 var(--display);text-transform:uppercase;margin:0 0 4px;text-wrap:balance}
+.sub{color:#d0d0d0;margin:4px 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+[hidden]{display:none!important}
+.pill{display:inline-block;white-space:nowrap;font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
+.pill.warn{background:var(--ink);color:var(--bg)}
+.chipst{display:inline-block;white-space:nowrap;font-size:.75rem;font-weight:700;padding:1px 8px;border-radius:999px}
+.chipst.ok{background:var(--ok-bg);color:var(--ok)}
+.chipst.pend{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.chipst.bad{background:var(--bad-bg);color:var(--bad)}
+main{max-width:860px;margin:0 auto;padding:0 16px 48px}
+nav.tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin:12px 0 14px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{font:700 1.05rem var(--display);text-transform:uppercase;letter-spacing:.03em;color:var(--muted);text-decoration:none;padding:12px 10px;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;flex:0 0 auto}
+@media (max-width:420px){nav.tabs a{font-size:.95rem;padding:12px 8px;letter-spacing:.01em}}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-color:var(--accent)}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.divs{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-bottom:16px}
+.divs .lbl{font-size:.85rem;color:var(--muted);font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 .95rem var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer;min-width:48px;min-height:44px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.jornada{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow)}
+.jhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px;background:var(--soft);border-bottom:2px solid var(--line);flex-wrap:wrap}
+.jhead h3{font:700 1.25rem var(--display);text-transform:uppercase;margin:0}
+.jhead .when{color:var(--muted);font-size:.92rem}
+.jornada.next{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.tag{font-size:.75rem;font-weight:700;background:var(--accent);color:var(--accent-ink);padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:2px}
+a.match{display:grid;grid-template-columns:1fr auto 1fr;gap:4px 8px;padding:10px 14px;align-items:center;color:inherit;text-decoration:none}
+a.match:nth-of-type(even){background:var(--soft)}
+a.match:hover{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+.match + .match{border-top:1px solid var(--line-soft)}
+.team{font-weight:600}
+.team.away{text-align:right}
+.team.win{color:var(--accent)}
+.team small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
+.vs{font:700 .9rem var(--display);color:var(--muted);text-align:center;min-width:44px}
+.score{font:700 1.35rem var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
+.meta{grid-column:1/-1;font-size:.82rem;color:var(--muted);display:flex;gap:2px 14px;flex-wrap:wrap;align-items:center}
+.meta b{color:var(--ink);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow)}
+.card summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.card summary::-webkit-details-marker{display:none}
+.card summary .nm{font-weight:700}
+.card summary .info{font-size:.85rem;color:var(--muted)}
+.card summary > .info{white-space:nowrap}
+.card .body{padding:12px 14px}
+details.card .body{padding-top:12px}
+details.card[open] > summary{background:var(--soft);border-bottom:2px solid var(--line)}
+details.card:nth-of-type(even){background:var(--soft)}
+details.card:nth-of-type(even)[open] > summary{background:var(--surface)}
+details.card:nth-of-type(even) tbody tr:nth-child(even) td{background:var(--surface)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+tbody tr:nth-child(even) td{background:var(--soft)}
+th{font-size:.75rem;text-transform:uppercase;color:var(--ink);background:var(--soft);border-bottom:2px solid var(--line);letter-spacing:.04em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.pts{font-weight:700}
+td.eq{white-space:normal;min-width:140px}
+@media (max-width:420px){.tablewrap th,.tablewrap td{padding:7px 3px}.tablewrap td.eq{min-width:0}.card .body.tablewrap{padding-left:8px;padding-right:8px}.card tbody tr.fila .teamlink{padding:6px 0}}
+td.eq small{display:block;color:var(--muted);font-size:.75rem}
+.warnlist,.errlist{border-left:4px solid var(--ink);background:var(--warn-bg);padding:8px 12px;border-radius:6px;margin:8px 0 10px;font-size:.88rem}
+.errlist{border-color:var(--bad);background:var(--bad-bg)}
+.warnlist ul,.errlist ul{margin:4px 0 0;padding-left:18px}
+.oklist{border-left:4px dashed var(--muted);background:var(--ok-bg);padding:8px 12px;border-radius:6px;margin:8px 0 10px;font-size:.88rem}
+.state{padding:28px 16px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:12px}
+.note{font-size:.85rem;color:var(--muted);margin:0 0 12px}
+.back{display:inline-block;margin-bottom:10px;color:var(--accent);font-weight:600;text-decoration:none}
+.btn{font:700 .95rem var(--body);border-radius:8px;padding:9px 14px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.sec{background:transparent;color:var(--accent)}
+.btn.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+label{font-size:.85rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px}
+input,select,textarea{font:16px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 8px;max-width:100%}
+.field{margin-bottom:12px}
+.torn{border-top:2px solid var(--line);padding-top:10px;margin-top:14px}
+.torn h3{font:700 1.15rem var(--display);text-transform:uppercase;margin:0 0 6px}
+.partit{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--soft)}
+.partit .ph{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:700;margin-bottom:8px}
+.sides{display:grid;grid-template-columns:1fr;gap:8px}
+.side select{width:100%;margin-bottom:4px}
+.sets{display:grid;grid-template-columns:auto repeat(3,64px);gap:4px 8px;align-items:center;margin-top:8px}
+.sets input{width:64px;text-align:center}
+.sets .h{font-size:.75rem;color:var(--muted);text-align:center;text-transform:uppercase}
+.result{font:700 1.6rem var(--display);text-align:center;margin:8px 0}
+.ro-partit{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:.9rem;align-items:center}
+.ro-partit .s{font-variant-numeric:tabular-nums;font-weight:700;text-align:center;white-space:nowrap}
+.ro-partit .r{text-align:right}
+.ro-partit .w{font-weight:700;color:var(--accent)}
+.legend{font-size:.8rem;color:var(--muted);margin-top:8px}
+.teamlink{background:none;border:0;padding:0;margin:0;font:inherit;font-weight:600;color:var(--ink);text-align:left;cursor:pointer;text-decoration:none}
+.card tbody tr.fila{cursor:pointer}
+.card tbody tr.fila .teamlink{padding:10px 0}
+.card tbody tr.fila.fila:hover td,.card tbody tr.fila.fila:focus-within td,.card tbody tr.fila.fila.sel td{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+.card tbody tr.fila.fila.sel td:first-child,.card tbody tr.fila.fila.meu td:first-child{box-shadow:inset 4px 0 0 var(--accent)}
+.card tbody tr.fila.fila.meu td,.card tbody tr.fila.fila.meu:hover td{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+.filtre{display:flex;gap:8px;align-items:center;margin:0 0 12px}
+.filtre label{font-weight:600;font-size:.9rem;white-space:nowrap}
+.filtre select{flex:1;min-width:0;min-height:44px}
+.filtre .btn{min-height:44px}
+.caps,.cerca{list-style:none;margin:8px 0;padding:0}
+.caps li,.cerca li{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:4px 0}
+.cerca li{justify-content:flex-start}
+.caps .btn,.cerca .btn{min-height:44px}
+.divtit{font:700 1.1rem var(--display);text-transform:uppercase;margin:16px 0 8px}
+.filtre-club{margin:-4px 0 12px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(600px,calc(100% - 20px));max-height:calc(100dvh - 24px);background:var(--surface);color:var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.35);overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.dhead{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px 10px;background:var(--hdr);color:var(--hdr-ink);border-bottom:4px solid var(--accent)}
+.dhead h2{margin:0;color:var(--hdr-ink)}
+.dhead p{margin:2px 0 0;font-size:.88rem;color:#d0d0d0}
+.dclose{flex:none;font:700 1rem var(--body);background:transparent;color:var(--hdr-ink);border:1px solid #888;border-radius:8px;padding:6px 12px;cursor:pointer}
+.dclose:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.dbody{padding:14px 16px 18px}
+.dbody h3{font:700 1.15rem var(--display);text-transform:uppercase;margin:18px 0 8px}
+.dbody h3:first-child{margin-top:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font:700 1.35rem var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.jrow{padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.jrow:nth-child(even){background:var(--soft);margin:0 -16px;padding:10px 16px}
+.jrow .l1 > span:last-child{white-space:nowrap}
+.jrow .l1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.jrow .rv{font-weight:600}
+.jrow .sc{font:700 1.2rem var(--display);white-space:nowrap;font-variant-numeric:tabular-nums}
+.jrow .l2{font-size:.82rem;color:var(--muted);display:flex;gap:2px 12px;flex-wrap:wrap;margin-top:2px;align-items:center}
+.jrow.pend{color:var(--muted)}
+.jrow a{color:var(--accent);font-weight:600}
+.step{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--surface)}
+.step p{margin:0 0 8px;font-size:.9rem}
+.step table th.crit,.step table td.crit{background:color-mix(in srgb,var(--accent) 14%,var(--surface));font-weight:700}
+.step tr.me td{font-weight:700}
+.step th,.step td{padding:6px 4px}
+.step td.eq{min-width:0;white-space:normal}
+.step .res{margin:8px 0 0;font-weight:600}
+@media (min-width:640px){h1{font-size:2.4rem}.sides{grid-template-columns:1fr 1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lliga Catalana de Tennis Platja</h1>
+  <p class="sub"><span id="temporada">Temporada 2026-27</span><span id="adminBadge" hidden class="pill">Mode administrador</span><span id="rolBadge" hidden class="pill"></span></p>
+</header>
+<main>
+  <nav class="tabs" aria-label="Seccions">
+    <a href="#calendari" data-view="calendari">Calendari</a>
+    <a href="#classificacio" data-view="classificacio">Classificació</a>
+    <a href="#equips" data-view="equips">Equips</a>
+    <a href="#validacio" data-view="validacio" id="tabValidacio" hidden>Validació</a>
+    <a href="#rols" data-view="rols" id="tabRols" hidden>Rols</a>
+    <a href="#capita" data-view="capita" id="tabCapita" hidden>Soc capità/ana</a>
+    <a href="#avisos" data-view="avisos" id="tabAvisos" hidden>Avisos</a>
+  </nav>
+  <div class="divs" id="divPicker" hidden>
+    <span class="lbl">Masculí</span><div class="chips" id="chipsM"></div>
+    <span class="lbl">Femení</span><div class="chips" id="chipsF"></div>
+  </div>
+  <section id="view"><div class="state">Carregant dades de la lliga…</div></section>
+</main>
+<footer style="max-width:960px;margin:24px auto;padding:0 16px;font-size:.85rem;color:var(--muted)">Dades actualitzades el 2026-11-13 21:30. Resultats provisionals fins que l'organització valida cada acta.</footer>
+<dialog id="dlgEquip" aria-labelledby="dlgTitol"></dialog>
+<script>
+window.LCTP_PUBLIC=true;
+(()=>{const store={"lliga/config":{"temporada":"2026-27","clubs":[{"id":"castelldefels","nom":"BT Castelldefels"},{"id":"masnou","nom":"BT El Masnou"},{"id":"torredembarra","nom":"CEBT Torredembarra"},{"id":"barcelona","nom":"BT Barcelona"},{"id":"viktoria","nom":"Viktoria BTC"},{"id":"lleida","nom":"CN Lleida"},{"id":"badalona","nom":"BT Badalona"},{"id":"bonarena","nom":"Bonarena BT"},{"id":"santpol","nom":"CN Sant Pol de Mar"},{"id":"premia","nom":"BT Premià de Mar"}],"divisions":[{"id":"M1","sexe":"M","num":1,"jornades":[{"num":1,"data":"2026-11-08"},{"num":2,"data":"2026-11-22"},{"num":3,"data":"2026-12-13"},{"num":4,"data":"2027-01-10"},{"num":5,"data":"2027-01-24"},{"num":6,"data":"2027-02-07"},{"num":7,"data":"2027-04-04"}],"equips":["M-barcelona-A","M-castelldefels-A","M-lleida-A","M-masnou-A","M-masnou-B","M-torredembarra-A","M-torredembarra-B","M-viktoria-B"],"voltes":1,"nom":"1a Divisió Masculina"},{"id":"M2","sexe":"M","num":2,"jornades":[{"num":1,"data":"2026-11-15"},{"num":2,"data":"2026-11-29"},{"num":3,"data":"2026-12-20"},{"num":4,"data":"2027-01-17"},{"num":5,"data":"2027-01-31"},{"num":6,"data":"2027-02-14"},{"num":7,"data":"2027-02-28"}],"equips":["M-badalona-A","M-bonarena-A","M-castelldefels-B","M-lleida-B","M-masnou-C","M-santpol-A","M-santpol-B","M-torredembarra-C"],"voltes":1,"nom":"2a Divisió Masculina"},{"id":"M3","sexe":"M","num":3,"jornades":[{"num":1,"data":"2026-11-08"},{"num":2,"data":"2026-11-22"},{"num":3,"data":"2026-12-13"},{"num":4,"data":"2027-01-10"},{"num":5,"data":"2027-01-24"},{"num":6,"data":"2027-02-07"},{"num":7,"data":"2027-04-04"}],"equips":["M-badalona-B","M-barcelona-B","M-bonarena-B","M-castelldefels-C","M-masnou-D","M-premia-A","M-torredembarra-D","M-viktoria-A"],"voltes":1,"nom":"3a Divisió Masculina"},{"id":"F1","sexe":"F","num":1,"jornades":[{"num":1,"data":"2026-11-08"},{"num":2,"data":"2026-11-22"},{"num":3,"data":"2026-12-13"},{"num":4,"data":"2027-01-10"},{"num":5,"data":"2027-01-24"},{"num":6,"data":"2027-02-07"},{"num":7,"data":"2027-04-04"}],"equips":["F-barcelona-A","F-barcelona-B","F-castelldefels-A","F-castelldefels-B","F-lleida-A","F-masnou-A","F-torredembarra-A","F-viktoria-A"],"voltes":1,"nom":"1a Divisió Femenina"},{"id":"F2","sexe":"F","num":2,"jornades":[{"num":1,"data":"2026-11-15"},{"num":2,"data":"2026-11-29"},{"num":3,"data":"2026-12-20"},{"num":4,"data":"2027-01-17"},{"num":5,"data":"2027-01-31"},{"num":6,"data":"2027-02-14"},{"num":7,"data":"2027-02-28"}],"equips":["F-barcelona-C","F-bonarena-A","F-lleida-B","F-masnou-B","F-santpol-A","F-torredembarra-B","F-torredembarra-C","F-viktoria-B"],"voltes":1,"nom":"2a Divisió Femenina"},{"id":"F3","sexe":"F","num":3,"jornades":[{"num":1,"data":"2026-11-08"},{"num":2,"data":"2026-11-22"},{"num":3,"data":"2026-12-13"},{"num":4,"data":"2027-01-10"},{"num":5,"data":"2027-01-24"},{"num":6,"data":"2027-02-07"}],"equips":["F-badalona-A","F-castelldefels-C","F-premia-A","F-viktoria-C"],"voltes":2,"nom":"3a Divisió Femenina"}]},"equips/F-badalona-A":{"id":"F-badalona-A","sexe":"F","divisio":3,"club":"badalona","lletra":"A","nom":"BT Badalona A","capitans":["Vanesa Ortiz"],"jugadors":[{"ordre":1,"llicencia":"11695858","nom":"Vanesa","cognoms":"Ortiz Ortega","ranking":350},{"ordre":2,"llicencia":"11696195","nom":"Ouafiki","cognoms":"Imane","ranking":350},{"ordre":3,"llicencia":"11702463","nom":"Ester","cognoms":"Quesada Canal","ranking":352},{"ordre":4,"llicencia":"11775824","nom":"Silvia","cognoms":"Trias","ranking":431},{"ordre":5,"llicencia":"11696187","nom":"Alejandra","cognoms":"Serrahima Artiga","ranking":451},{"ordre":6,"llicencia":"11695890","nom":"Raquel","cognoms":"Arenas Herrero","ranking":451},{"ordre":7,"llicencia":"11696228","nom":"Tina","cognoms":"Jimenez Barragan","ranking":451},{"ordre":8,"llicencia":"11702661","nom":"D´Alessandro","cognoms":"Filomena","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-barcelona-A":{"id":"F-barcelona-A","sexe":"F","divisio":1,"club":"barcelona","lletra":"A","nom":"BT Barcelona A","capitans":["Alejandra Porteiro"],"jugadors":[{"ordre":1,"llicencia":"11525229","nom":"Alejandra","cognoms":"Porteiro","ranking":38},{"ordre":2,"llicencia":"11775741","nom":"Nadia","cognoms":"Cobo","ranking":67},{"ordre":3,"llicencia":"11483021","nom":"Marta","cognoms":"Serrano","ranking":79},{"ordre":4,"llicencia":"11822162","nom":"Tatiana","cognoms":"Chicharo","ranking":86},{"ordre":5,"llicencia":"11672814","nom":"Carina","cognoms":"Haas","ranking":126},{"ordre":6,"llicencia":"6566981","nom":"Monica","cognoms":"Guarro","ranking":140},{"ordre":7,"llicencia":"11534486","nom":"Roser","cognoms":"Mas","ranking":197},{"ordre":8,"llicencia":"11641710","nom":"Elena","cognoms":"Atero","ranking":219},{"ordre":9,"llicencia":"11651785","nom":"Helena","cognoms":"Velasco","ranking":219}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-barcelona-B":{"id":"F-barcelona-B","sexe":"F","divisio":1,"club":"barcelona","lletra":"B","nom":"BT Barcelona B","capitans":["Arola Teixidor"],"jugadors":[{"ordre":1,"llicencia":"11775121","nom":"Arola","cognoms":"Teixidor","ranking":125},{"ordre":2,"llicencia":"11715169","nom":"Silvia","cognoms":"Faedda","ranking":145},{"ordre":3,"llicencia":"11716563","nom":"Bruna","cognoms":"Correa","ranking":194},{"ordre":4,"llicencia":"11743467","nom":"Sara","cognoms":"Hernandez Pons","ranking":195},{"ordre":5,"llicencia":"11742807","nom":"Zakia","cognoms":"Sousi Meziani","ranking":221},{"ordre":6,"llicencia":"11695080","nom":"Mara","cognoms":"Nunziatini","ranking":244},{"ordre":7,"llicencia":"11690783","nom":"Susana","cognoms":"Martínez Ferrero","ranking":257},{"ordre":8,"llicencia":"11753292","nom":"Florence","cognoms":"Bouché","ranking":257},{"ordre":9,"llicencia":"11953230","nom":"Sara","cognoms":"Guimaraes","ranking":9999},{"ordre":10,"llicencia":"11891802","nom":"Nicola","cognoms":"Cotterill","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-barcelona-C":{"id":"F-barcelona-C","sexe":"F","divisio":2,"club":"barcelona","lletra":"C","nom":"BT Barcelona C","capitans":["Sonia Sanz"],"jugadors":[{"ordre":1,"llicencia":"11692078","nom":"Andrea","cognoms":"Zaragoza Barrufet","ranking":292},{"ordre":2,"llicencia":"11693878","nom":"Anna","cognoms":"Fernandez Torrelles","ranking":293},{"ordre":3,"llicencia":"11855684","nom":"Ingrid","cognoms":"David Minguell","ranking":304},{"ordre":4,"llicencia":"11855717","nom":"Paula","cognoms":"Valle Croakert","ranking":309},{"ordre":5,"llicencia":"11704401","nom":"Sabrina","cognoms":"Festa","ranking":314},{"ordre":6,"llicencia":"11193597","nom":"Judith","cognoms":"Rueda Roc","ranking":322},{"ordre":7,"llicencia":"11743764","nom":"Sara","cognoms":"Arévalo Tazo","ranking":334},{"ordre":8,"llicencia":"11753424","nom":"Sonia","cognoms":"Sanz Gomez","ranking":338},{"ordre":9,"llicencia":"11934967","nom":"Victoria","cognoms":"Dmitrieva","ranking":434},{"ordre":10,"llicencia":"11896779","nom":"Merce","cognoms":"Cuadras","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-bonarena-A":{"id":"F-bonarena-A","sexe":"F","divisio":2,"club":"bonarena","lletra":"A","nom":"Bonarena BT A","capitans":["Irene Ureña"],"jugadors":[{"ordre":1,"llicencia":"11823459","nom":"Irene","cognoms":"Ureña Cerdán","ranking":275},{"ordre":2,"llicencia":"11823475","nom":"Guiomar","cognoms":"Huguet Pané","ranking":275},{"ordre":3,"llicencia":"11823441","nom":"Yasmina","cognoms":"Pegalajar Carallol","ranking":275},{"ordre":4,"llicencia":"6488052","nom":"Patricia","cognoms":"Sánchez Roiget","ranking":275},{"ordre":5,"llicencia":"11950418","nom":"Carolina","cognoms":"Barreiros Campos","ranking":9999},{"ordre":6,"llicencia":"11950468","nom":"Noelia","cognoms":"Ruiz Dominguez","ranking":9999},{"ordre":7,"llicencia":"11950426","nom":"Miriam","cognoms":"Garcia París","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-castelldefels-A":{"id":"F-castelldefels-A","sexe":"F","divisio":1,"club":"castelldefels","lletra":"A","nom":"BT Castelldefels A","capitans":["Barbara Merlini","Alba Vara"],"jugadors":[{"ordre":1,"llicencia":"11753226","nom":"Lola","cognoms":"Rafales Merlini","ranking":8},{"ordre":2,"llicencia":"11654680","nom":"Alba","cognoms":"Vara Chiva","ranking":14},{"ordre":3,"llicencia":"11766336","nom":"Sira","cognoms":"García Bustamante","ranking":22},{"ordre":4,"llicencia":"11752913","nom":"Barbara","cognoms":"Merlini","ranking":44},{"ordre":5,"llicencia":"11704352","nom":"Nuria","cognoms":"Ramos Estudillo","ranking":66},{"ordre":6,"llicencia":"11704063","nom":"Laura","cognoms":"Jiménez Fernández","ranking":108},{"ordre":7,"llicencia":"11903037","nom":"Anastasija","cognoms":"Tolstaja","ranking":123}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-castelldefels-B":{"id":"F-castelldefels-B","sexe":"F","divisio":1,"club":"castelldefels","lletra":"B","nom":"BT Castelldefels B","capitans":["Xènia Cantoni","Mª Jesús Santolaria"],"jugadors":[{"ordre":1,"llicencia":"11715367","nom":"Avelina","cognoms":"Bustamante López","ranking":97},{"ordre":2,"llicencia":"11854727","nom":"Cristina","cognoms":"Sánchez Cuenca","ranking":107},{"ordre":3,"llicencia":"11704336","nom":"María Jesús","cognoms":"Santolaria Martos","ranking":124},{"ordre":4,"llicencia":"11715333","nom":"Verónica","cognoms":"Carreño Silva","ranking":135},{"ordre":5,"llicencia":"11715367","nom":"Anna","cognoms":"Carreño de San Nicolás","ranking":136},{"ordre":6,"llicencia":"6124747","nom":"Olga","cognoms":"García Medalla","ranking":156},{"ordre":7,"llicencia":"11770361","nom":"Xènia","cognoms":"Cantoni Gavaldà","ranking":157}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-castelldefels-C":{"id":"F-castelldefels-C","sexe":"F","divisio":3,"club":"castelldefels","lletra":"C","nom":"BT Castelldefels C","capitans":["Nuria Ruiz","Denia Lázaro"],"jugadors":[{"ordre":1,"llicencia":"11786863","nom":"Nuria","cognoms":"Ruiz Jiménez","ranking":239},{"ordre":2,"llicencia":"11753507","nom":"Beatriz","cognoms":"Pino Clarós","ranking":297},{"ordre":3,"llicencia":"11819028","nom":"Silvia","cognoms":"Sierra Jiménez","ranking":401},{"ordre":4,"llicencia":"6536132","nom":"Cora","cognoms":"Cosín Hernández","ranking":401},{"ordre":5,"llicencia":"6562088","nom":"Sara","cognoms":"Mesa Bueno","ranking":401},{"ordre":6,"llicencia":"11531606","nom":"Denia","cognoms":"Lázaro Ardila","ranking":464},{"ordre":7,"llicencia":"11949114","nom":"Andrea","cognoms":"García Pintado","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-lleida-A":{"id":"F-lleida-A","sexe":"F","divisio":1,"club":"lleida","lletra":"A","nom":"CN Lleida A","capitans":["Marimar Aguilar"],"jugadors":[{"ordre":1,"llicencia":"11805019","nom":"Eva","cognoms":"Carrera","ranking":60},{"ordre":2,"llicencia":"11817949","nom":"Núria","cognoms":"Mas","ranking":69},{"ordre":3,"llicencia":"11683324","nom":"María Antonia","cognoms":"Romero","ranking":87},{"ordre":4,"llicencia":"11805027","nom":"Marimar","cognoms":"Aguilar","ranking":89},{"ordre":5,"llicencia":"11817733","nom":"Sarai","cognoms":"Lorente","ranking":99},{"ordre":6,"llicencia":"6832596","nom":"Sandra","cognoms":"Azorín","ranking":116},{"ordre":7,"llicencia":"11917880","nom":"Natalia","cognoms":"Agüero","ranking":151},{"ordre":8,"llicencia":"11256973","nom":"Silvia","cognoms":"Marín","ranking":155},{"ordre":9,"llicencia":"6161648","nom":"Mònica","cognoms":"Bachiller","ranking":167},{"ordre":10,"llicencia":"6607892","nom":"Cristina","cognoms":"Giménez","ranking":168},{"ordre":11,"llicencia":"6811577","nom":"Blau","cognoms":"Caballol","ranking":null}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-lleida-B":{"id":"F-lleida-B","sexe":"F","divisio":2,"club":"lleida","lletra":"B","nom":"CN Lleida B","capitans":["Olga Casals"],"jugadors":[{"ordre":1,"llicencia":"11817345","nom":"Susana","cognoms":"Cubota","ranking":102},{"ordre":2,"llicencia":"11821338","nom":"Inma","cognoms":"Tomás","ranking":198},{"ordre":3,"llicencia":"11823780","nom":"Vanesa","cognoms":"Figueras","ranking":211},{"ordre":4,"llicencia":"11817907","nom":"Shaila","cognoms":"Barberà","ranking":216},{"ordre":5,"llicencia":"11817402","nom":"Judith","cognoms":"Llinàs","ranking":222},{"ordre":6,"llicencia":"11890739","nom":"Ester","cognoms":"Abella","ranking":234},{"ordre":7,"llicencia":"11817395","nom":"Júlia","cognoms":"Paz","ranking":294},{"ordre":8,"llicencia":"11821346","nom":"Núria","cognoms":"Morera","ranking":295},{"ordre":9,"llicencia":"3195759","nom":"Olga","cognoms":"Casals","ranking":296},{"ordre":10,"llicencia":"11862647","nom":"Montse","cognoms":"Mateu","ranking":298},{"ordre":11,"llicencia":"11866285","nom":"Carla","cognoms":"Salvador","ranking":9999},{"ordre":12,"llicencia":"1492785","nom":"Eva","cognoms":"Lamarca","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-masnou-A":{"id":"F-masnou-A","sexe":"F","divisio":1,"club":"masnou","lletra":"A","nom":"BT El Masnou A","capitans":["Maria Triola"],"jugadors":[{"ordre":1,"llicencia":"11714806","nom":"Judith","cognoms":"Contreras Pedros","ranking":28},{"ordre":2,"llicencia":"11550127","nom":"Julia","cognoms":"Llobet Ferrer","ranking":35},{"ordre":3,"llicencia":"6068599","nom":"Tania","cognoms":"Gonzalez Margalef","ranking":48},{"ordre":4,"llicencia":"11748730","nom":"Maria","cognoms":"Triola Fernandez","ranking":72},{"ordre":5,"llicencia":"11698141","nom":"Alba","cognoms":"Guadarrama Gallegos","ranking":110},{"ordre":6,"llicencia":"11867655","nom":"Ana Beatriz","cognoms":"Lopes Orlandi","ranking":182},{"ordre":7,"llicencia":"11899145","nom":"Daniela Sophia","cognoms":"Muñoz Maldonado","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-masnou-B":{"id":"F-masnou-B","sexe":"F","divisio":2,"club":"masnou","lletra":"B","nom":"BT El Masnou B","capitans":["Judith López"],"jugadors":[{"ordre":1,"llicencia":"11641273","nom":"Cristina","cognoms":"Fernandez Garcia","ranking":245},{"ordre":2,"llicencia":"11493583","nom":"Judith","cognoms":"Lopez","ranking":252},{"ordre":3,"llicencia":"3573385","nom":"Lorena","cognoms":"Mendioroz Vallespin","ranking":285},{"ordre":4,"llicencia":"11724102","nom":"Blanca","cognoms":"Plana Robles","ranking":303},{"ordre":5,"llicencia":"11774561","nom":"Maria","cognoms":"Martinez Barahona","ranking":311},{"ordre":6,"llicencia":"11776913","nom":"Jessica","cognoms":"Bigogno","ranking":311}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/F-premia-A":{"id":"F-premia-A","sexe":"F","divisio":3,"club":"premia","lletra":"A","nom":"BT Premià de Mar A","capitans":["Bea Fernández"],"jugadors":[{"ordre":1,"llicencia":"11527051","nom":"Gina","cognoms":"Punyet Marca","ranking":364},{"ordre":2,"llicencia":"11874353","nom":"Artemisa","cognoms":"Arran Galbany","ranking":368},{"ordre":3,"llicencia":"11874387","nom":"Bea","cognoms":"Fernandez Mora","ranking":368},{"ordre":4,"llicencia":"11874593","nom":"Silvia","cognoms":"Vallespinós Del Castillo","ranking":372},{"ordre":5,"llicencia":"11916204","nom":"Anna","cognoms":"Rodriguez Roca","ranking":372},{"ordre":6,"llicencia":"11874171","nom":"Mercé","cognoms":"Asensio Cisa","ranking":372},{"ordre":7,"llicencia":"11874345","nom":"Erika","cognoms":"Kerns Peck","ranking":372},{"ordre":8,"llicencia":"11948215","nom":"Roser","cognoms":"Pi","ranking":9999},{"ordre":9,"llicencia":"11948190","nom":"Judit","cognoms":"Llongueras","ranking":9999},{"ordre":10,"llicencia":"11948273","nom":"Mariona","cognoms":"Dasquens","ranking":9999},{"ordre":11,"llicencia":"11948207","nom":"Maite","cognoms":"Picón Jimenez","ranking":9999},{"ordre":12,"llicencia":"6389185","nom":"Laia","cognoms":"Cruixent","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:30"}},"equips/F-santpol-A":{"id":"F-santpol-A","sexe":"F","divisio":2,"club":"santpol","lletra":"A","nom":"CN Sant Pol de Mar A","capitans":["Claudia Cabot"],"jugadors":[{"ordre":1,"llicencia":"11884295","nom":"Mónica","cognoms":"Capon Borrell","ranking":236},{"ordre":2,"llicencia":"11079333","nom":"Blanca","cognoms":"Pérez Rovira","ranking":236},{"ordre":3,"llicencia":"11049427","nom":"Cristina","cognoms":"Rodriguez Lopez","ranking":236},{"ordre":4,"llicencia":"11874634","nom":"Luisa","cognoms":"Villagrasa Vizcaigana","ranking":265},{"ordre":5,"llicencia":"11421716","nom":"Alejandra","cognoms":"Cabot Villagrasa","ranking":271},{"ordre":6,"llicencia":"11874650","nom":"Blanca","cognoms":"De Cambra Castelltort","ranking":271},{"ordre":7,"llicencia":"11874949","nom":"Marta","cognoms":"De Cambra Castelltort","ranking":282},{"ordre":8,"llicencia":"11910595","nom":"Ines","cognoms":"Gachet Perez","ranking":282},{"ordre":9,"llicencia":"11145762","nom":"Claudia","cognoms":"Cabot Villagrasa","ranking":999},{"ordre":10,"llicencia":"11947473","nom":"Laura","cognoms":"Laliga Fewkes","ranking":999},{"ordre":11,"llicencia":"11951698","nom":"Martina","cognoms":"Villagrasa Pigrau","ranking":999},{"ordre":12,"llicencia":"Pendent","nom":"Patricia","cognoms":"Cabot Jané","ranking":999}],"horari":{"dia":"Diumenge","hora":"10:30"}},"equips/F-torredembarra-A":{"id":"F-torredembarra-A","sexe":"F","divisio":1,"club":"torredembarra","lletra":"A","nom":"CEBT Torredembarra A","capitans":["Laura Juan"],"jugadors":[{"ordre":1,"llicencia":"6191788","nom":"Estefania","cognoms":"Simón Font","ranking":31},{"ordre":2,"llicencia":"11672583","nom":"Maribel","cognoms":"Vives Pérez","ranking":32},{"ordre":3,"llicencia":"11654804","nom":"Laura","cognoms":"Juan Guadas","ranking":33},{"ordre":4,"llicencia":"11577890","nom":"Jana","cognoms":"Kabickova Skudrnova","ranking":37},{"ordre":5,"llicencia":"11500974","nom":"Noemí","cognoms":"de Arostegui Bardagí","ranking":50},{"ordre":6,"llicencia":"11738525","nom":"Susagna","cognoms":"Alcañiz Puigfel","ranking":52}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-torredembarra-B":{"id":"F-torredembarra-B","sexe":"F","divisio":2,"club":"torredembarra","lletra":"B","nom":"CEBT Torredembarra B","capitans":["Júlia De Buen"],"jugadors":[{"ordre":1,"llicencia":"11704998","nom":"Júlia","cognoms":"de Buen Luna","ranking":132},{"ordre":2,"llicencia":"11708031","nom":"Noelia","cognoms":"Infantes Olivé","ranking":288},{"ordre":3,"llicencia":"11683366","nom":"Cristina","cognoms":"Martínez Lázaro","ranking":324},{"ordre":4,"llicencia":"11811917","nom":"Clara","cognoms":"Sardà Campomanes","ranking":9999},{"ordre":5,"llicencia":"11944974","nom":"Abril","cognoms":"Mercadé Montaner","ranking":9999},{"ordre":6,"llicencia":"11814325","nom":"Montserrat","cognoms":"Maeso Lamas","ranking":9999},{"ordre":7,"llicencia":"11944958","nom":"Eulàlia","cognoms":"Vallés Capell","ranking":9999},{"ordre":8,"llicencia":"11944966","nom":"Anna","cognoms":"Montaner Guergé","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-torredembarra-C":{"id":"F-torredembarra-C","sexe":"F","divisio":2,"club":"torredembarra","lletra":"C","nom":"CEBT Torredembarra C","capitans":["Gabriela López"],"jugadors":[{"ordre":1,"llicencia":"11861623","nom":"Judit","cognoms":"Campos Baguena","ranking":91},{"ordre":2,"llicencia":"11680130","nom":"Gabriela","cognoms":"López Martínez","ranking":98},{"ordre":3,"llicencia":"16066921","nom":"Marta","cognoms":"Rios Cintora","ranking":119},{"ordre":4,"llicencia":"11707067","nom":"Olga","cognoms":"de Buen Luna","ranking":138},{"ordre":5,"llicencia":"11716406","nom":"Gemma","cognoms":"Borràs Martínez","ranking":184},{"ordre":6,"llicencia":"11761336","nom":"Beatriz","cognoms":"Vallejo Argüeso","ranking":190},{"ordre":7,"llicencia":"6844569","nom":"Victòria","cognoms":"Colomé Alfageme","ranking":232},{"ordre":8,"llicencia":"11810141","nom":"Cristina","cognoms":"Rubio Giner","ranking":270},{"ordre":9,"llicencia":"11820108","nom":"Patricia","cognoms":"Barel","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/F-viktoria-A":{"id":"F-viktoria-A","sexe":"F","divisio":1,"club":"viktoria","lletra":"A","nom":"Viktoria BTC A","capitans":["Ana Hernández"],"jugadors":[{"ordre":1,"llicencia":"11746544","nom":"Ana","cognoms":"Hernandez Bombin","ranking":81},{"ordre":2,"llicencia":"11818484","nom":"Celis","cognoms":"Lima Ramos Dos Santos","ranking":93},{"ordre":3,"llicencia":"11818517","nom":"Ana","cognoms":"Clara Arimon","ranking":101},{"ordre":4,"llicencia":"11696020","nom":"Milca","cognoms":"Gutierrez Aliaga","ranking":103},{"ordre":5,"llicencia":"11712280","nom":"Maria Laura","cognoms":"Leoni","ranking":106},{"ordre":6,"llicencia":"11822013","nom":"Maïa","cognoms":"Giraud","ranking":129},{"ordre":7,"llicencia":"6335435","nom":"Olga","cognoms":"Ferrer Campos","ranking":173},{"ordre":8,"llicencia":"11908889","nom":"Martina","cognoms":"Mottironi","ranking":185},{"ordre":9,"llicencia":"11834175","nom":"Rebecca","cognoms":"Den Hartog","ranking":210},{"ordre":10,"llicencia":"11818509","nom":"Cristina","cognoms":"Matamala Tudela","ranking":229}],"horari":{"dia":"Diumenge","hora":"12:15"}},"equips/F-viktoria-B":{"id":"F-viktoria-B","sexe":"F","divisio":2,"club":"viktoria","lletra":"B","nom":"Viktoria BTC B","capitans":["Esther Ramon"],"jugadors":[{"ordre":1,"llicencia":"6231865","nom":"Esther Ramon","cognoms":"Cornet","ranking":235},{"ordre":2,"llicencia":"11774305","nom":"Lidia","cognoms":"Martin Martinez","ranking":246},{"ordre":3,"llicencia":"11721489","nom":"Araceli","cognoms":"Ruiz Jimenez","ranking":337},{"ordre":4,"llicencia":"11866087","nom":"Irene","cognoms":"Nynke Visser","ranking":345},{"ordre":5,"llicencia":"11821049","nom":"Irina Isabel","cognoms":"Urriola Chavez","ranking":383},{"ordre":6,"llicencia":"11947093","nom":"Maribel","cognoms":"Sempere Aranda","ranking":9999},{"ordre":7,"llicencia":"11947100","nom":"Miriam","cognoms":"Gomez Limbos","ranking":9999},{"ordre":8,"llicencia":"11947085","nom":"Angela","cognoms":"Martinez Valls","ranking":9999},{"ordre":9,"llicencia":"6555174","nom":"Cristina","cognoms":"Sanchez Mesa","ranking":9999}],"horari":{"dia":"Diumenge","hora":"09:00"}},"equips/F-viktoria-C":{"id":"F-viktoria-C","sexe":"F","divisio":3,"club":"viktoria","lletra":"C","nom":"Viktoria BTC C","capitans":["Cindea Saranz"],"jugadors":[{"ordre":1,"llicencia":"11866160","nom":"Gema","cognoms":"Rodriguez","ranking":371},{"ordre":2,"llicencia":"11908897","nom":"Cindea","cognoms":"Saranz","ranking":383},{"ordre":3,"llicencia":"11749267","nom":"Vinciane","cognoms":"Callebaut","ranking":383},{"ordre":4,"llicencia":"11821099","nom":"Marta","cognoms":"Rimada Portero","ranking":383},{"ordre":5,"llicencia":"6883583","nom":"Elena","cognoms":"Sarno","ranking":9999},{"ordre":6,"llicencia":"11946954","nom":"Jeanne","cognoms":"Romero","ranking":9999},{"ordre":7,"llicencia":"11949255","nom":"Valentina","cognoms":"Pallini","ranking":9999},{"ordre":8,"llicencia":"11946665","nom":"Nouwen","cognoms":"Noortje","ranking":9999},{"ordre":9,"llicencia":"11956094","nom":"Elisa","cognoms":"Gallo","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-badalona-A":{"id":"M-badalona-A","sexe":"M","divisio":2,"club":"badalona","lletra":"A","nom":"BT Badalona A","capitans":["Adrià Martínez"],"jugadors":[{"ordre":1,"llicencia":"11855585","nom":"Marcel","cognoms":"Roberto Dias","ranking":178},{"ordre":2,"llicencia":"11695981","nom":"Sergi","cognoms":"Pera Aguilar","ranking":239},{"ordre":3,"llicencia":"11869528","nom":"Mauricio","cognoms":"Perez Caldas","ranking":272},{"ordre":4,"llicencia":"11696210","nom":"Adria","cognoms":"Martinez Peinado","ranking":281},{"ordre":5,"llicencia":"6827127","nom":"Àlvar","cognoms":"De La Mano Andres","ranking":281},{"ordre":6,"llicencia":"11696012","nom":"Otmane","cognoms":"Mouhssine","ranking":324},{"ordre":7,"llicencia":"6723424","nom":"Paco","cognoms":"Ruiz Mora","ranking":324},{"ordre":8,"llicencia":"11695965","nom":"Edu","cognoms":"Monterde Farre","ranking":324},{"ordre":9,"llicencia":"11898832","nom":"Sergio","cognoms":"Martin Tarrason","ranking":463}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-badalona-B":{"id":"M-badalona-B","sexe":"M","divisio":3,"club":"badalona","lletra":"B","nom":"BT Badalona B","capitans":["Ricardo Navarro"],"jugadors":[{"ordre":1,"llicencia":"11796185","nom":"Jacob","cognoms":"Roman Duran","ranking":448},{"ordre":2,"llicencia":"11775791","nom":"Oscar","cognoms":"Sanchez Escudero","ranking":454},{"ordre":3,"llicencia":"11695840","nom":"Ricardo","cognoms":"Navarro Lopez","ranking":458},{"ordre":4,"llicencia":"11899319","nom":"Xavier","cognoms":"Lopez Miñarro","ranking":458},{"ordre":5,"llicencia":"11696202","nom":"Jordi","cognoms":"Martinez Rosa","ranking":463},{"ordre":6,"llicencia":"1211242","nom":"Jaume","cognoms":"Planas Egea","ranking":463},{"ordre":7,"llicencia":"11721017","nom":"Oscar","cognoms":"Lozano Diez","ranking":463},{"ordre":8,"llicencia":"11909085","nom":"David","cognoms":"Monterde Torrents","ranking":9999},{"ordre":9,"llicencia":"11939173","nom":"Francesc","cognoms":"Plaza Pascual","ranking":9999},{"ordre":10,"llicencia":"11702512","nom":"Oscar","cognoms":"Chillon Font","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-barcelona-A":{"id":"M-barcelona-A","sexe":"M","divisio":1,"club":"barcelona","lletra":"A","nom":"BT Barcelona A","capitans":["Isaac Guisado"],"jugadors":[{"ordre":1,"llicencia":"11743558","nom":"Edu","cognoms":"Ingles Yuba","ranking":60},{"ordre":2,"llicencia":"11823433","nom":"Sergio Armando","cognoms":"Garcia Arce","ranking":68},{"ordre":3,"llicencia":"11743798","nom":"Francesco","cognoms":"Ricobono","ranking":85},{"ordre":4,"llicencia":"11628148","nom":"Isaac","cognoms":"Guisado Fernandez","ranking":100},{"ordre":5,"llicencia":"11822162","nom":"Felipe","cognoms":"Santos Da Costa","ranking":108},{"ordre":6,"llicencia":"11710119","nom":"Celso","cognoms":"Tiossi Sgarbi","ranking":149},{"ordre":7,"llicencia":"11899153","nom":"Edoardo","cognoms":"Zapparata","ranking":152},{"ordre":8,"llicencia":"11714997","nom":"Manuel","cognoms":"Marrone","ranking":172},{"ordre":9,"llicencia":"11737931","nom":"Adria","cognoms":"Galea","ranking":218},{"ordre":10,"llicencia":"11896282","nom":"Julio","cognoms":"Wermer","ranking":228},{"ordre":11,"llicencia":"11775379","nom":"Jose","cognoms":"Rodriguez Escovar","ranking":286},{"ordre":12,"llicencia":"11830199","nom":"Carlos","cognoms":"Polania","ranking":289}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-barcelona-B":{"id":"M-barcelona-B","sexe":"M","divisio":3,"club":"barcelona","lletra":"B","nom":"BT Barcelona B","capitans":["Carles Galí"],"jugadors":[{"ordre":1,"llicencia":"6464086","nom":"Daniel","cognoms":"Gomez Calvo","ranking":422},{"ordre":2,"llicencia":"11896795","nom":"Javier","cognoms":"Perez Miranda","ranking":430},{"ordre":3,"llicencia":"11874072","nom":"Ruben","cognoms":"Janssen","ranking":477},{"ordre":4,"llicencia":"11682227","nom":"Carles","cognoms":"Gali","ranking":482},{"ordre":5,"llicencia":"11682219","nom":"Francesc","cognoms":"Segura Garcia","ranking":484},{"ordre":6,"llicencia":"10225078","nom":"Julio","cognoms":"Garcia Covero","ranking":484},{"ordre":7,"llicencia":"11682227","nom":"Carles","cognoms":"Riu Balasch","ranking":484},{"ordre":8,"llicencia":"11709724","nom":"Alberto","cognoms":"Contreras Quemada","ranking":484},{"ordre":9,"llicencia":"11899054","nom":"Alberto","cognoms":"Conejero Ortiz","ranking":484},{"ordre":10,"llicencia":"11874022","nom":"Maxime","cognoms":"De L'Espinay","ranking":484},{"ordre":11,"llicencia":"11885128","nom":"MICHEL Jean Andre","cognoms":"Vesseur","ranking":484},{"ordre":12,"llicencia":"11935105","nom":"Luiz","cognoms":"Donizeti","ranking":484}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-bonarena-A":{"id":"M-bonarena-A","sexe":"M","divisio":2,"club":"bonarena","lletra":"A","nom":"Bonarena BT A","capitans":["Ignacio González"],"jugadors":[{"ordre":1,"llicencia":"11772036","nom":"Ignacio","cognoms":"Gonzalez","ranking":300},{"ordre":2,"llicencia":"2470342","nom":"Alex","cognoms":"Miralles","ranking":302},{"ordre":3,"llicencia":"11771814","nom":"Fernando","cognoms":"Cuartero Leal","ranking":340},{"ordre":4,"llicencia":"11912450","nom":"Javier","cognoms":"Santiago","ranking":340},{"ordre":5,"llicencia":"11809631","nom":"Alexandre","cognoms":"Lépri Domenech","ranking":440},{"ordre":6,"llicencia":"11872414","nom":"Gregory","cognoms":"Sabatier","ranking":9999},{"ordre":7,"llicencia":"11953214","nom":"Moises","cognoms":"Nahon Assayag","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-bonarena-B":{"id":"M-bonarena-B","sexe":"M","divisio":3,"club":"bonarena","lletra":"B","nom":"Bonarena BT B","capitans":["Dani Fernández"],"jugadors":[{"ordre":1,"llicencia":"11869619","nom":"Dani","cognoms":"Fernández Gomez","ranking":434},{"ordre":2,"llicencia":"11947530","nom":"Iván","cognoms":"Rodriguez Dominguez","ranking":9999},{"ordre":3,"llicencia":"11945617","nom":"Isaac","cognoms":"Exojo Gallen","ranking":9999},{"ordre":4,"llicencia":"11947457","nom":"Francesc","cognoms":"Cleries Gambin","ranking":9999},{"ordre":5,"llicencia":"11945633","nom":"Gonzalo","cognoms":"Diez Garrido","ranking":9999},{"ordre":6,"llicencia":"11947506","nom":"Marc","cognoms":"Brugué García","ranking":9999},{"ordre":7,"llicencia":"11947481","nom":"Adrián","cognoms":"Grau Balsera","ranking":9999},{"ordre":8,"llicencia":"11945790","nom":"Luis","cognoms":"Martinez Lopez","ranking":9999},{"ordre":9,"llicencia":"11940948","nom":"Sandeep","cognoms":"Saujani","ranking":9999},{"ordre":10,"llicencia":"11950434","nom":"Michael Roger","cognoms":"Hendrick","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-castelldefels-A":{"id":"M-castelldefels-A","sexe":"M","divisio":1,"club":"castelldefels","lletra":"A","nom":"BT Castelldefels A","capitans":["Axel González","Charles Blais"],"jugadors":[{"ordre":1,"llicencia":"11715911","nom":"Charles","cognoms":"Blais","ranking":5},{"ordre":2,"llicencia":"11752319","nom":"Axel","cognoms":"González Lazaro","ranking":7},{"ordre":3,"llicencia":"11698688","nom":"Marcos","cognoms":"Rastrilla Antón","ranking":16},{"ordre":4,"llicencia":"6029161","nom":"Daniel","cognoms":"Aguilar de la Cruz","ranking":32},{"ordre":5,"llicencia":"11717793","nom":"Pau","cognoms":"Borràs Torramilans","ranking":36},{"ordre":6,"llicencia":"11409803","nom":"Hugo","cognoms":"Rodriguez García","ranking":83},{"ordre":7,"llicencia":"11723922","nom":"Francisco José","cognoms":"Rafales Graells","ranking":114},{"ordre":8,"llicencia":"6421268","nom":"Borja","cognoms":"Trujillo Llamas","ranking":122}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-castelldefels-B":{"id":"M-castelldefels-B","sexe":"M","divisio":2,"club":"castelldefels","lletra":"B","nom":"BT Castelldefels B","capitans":["Alexis Sorribas","Jorge Gómez"],"jugadors":[{"ordre":1,"llicencia":"11677484","nom":"Marc","cognoms":"Segués Llovet","ranking":133},{"ordre":2,"llicencia":"11852226","nom":"Arnau","cognoms":"Alegret García","ranking":159},{"ordre":3,"llicencia":"11761162","nom":"Pol","cognoms":"Carreño Gómez","ranking":176},{"ordre":4,"llicencia":"11642611","nom":"Rubén","cognoms":"Amadó Olba","ranking":184},{"ordre":5,"llicencia":"11715325","nom":"Jorge","cognoms":"Gómez Lorenzo","ranking":224},{"ordre":6,"llicencia":"11677567","nom":"Isaac","cognoms":"Giménez Sánchez","ranking":237},{"ordre":7,"llicencia":"11722396","nom":"Alexis","cognoms":"Sorribas Martínez","ranking":440},{"ordre":8,"llicencia":"11752244","nom":"Carles","cognoms":"Fontanals Millan","ranking":519},{"ordre":9,"llicencia":"11546283","nom":"Salvador","cognoms":"Díaz González","ranking":540},{"ordre":10,"llicencia":"11949106","nom":"Oscar","cognoms":"González Fernández","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-castelldefels-C":{"id":"M-castelldefels-C","sexe":"M","divisio":3,"club":"castelldefels","lletra":"C","nom":"BT Castelldefels C","capitans":["Dani Amadó","David Rodríguez"],"jugadors":[{"ordre":1,"llicencia":"11704427","nom":"Dani","cognoms":"Amadó Olba","ranking":160},{"ordre":2,"llicencia":"11680247","nom":"Raul","cognoms":"Garrido Cavanillas","ranking":191},{"ordre":3,"llicencia":"11472488","nom":"Lluís","cognoms":"González Roig","ranking":201},{"ordre":4,"llicencia":"11770387","nom":"David","cognoms":"Rodríguez Atienza","ranking":331},{"ordre":5,"llicencia":"11690296","nom":"Jaime","cognoms":"Bellini Lázaro","ranking":339},{"ordre":6,"llicencia":"11690303","nom":"Pere","cognoms":"Matute Martí","ranking":346},{"ordre":7,"llicencia":"11907683","nom":"Anthony","cognoms":"Lemoine","ranking":392},{"ordre":8,"llicencia":"11821841","nom":"Juan","cognoms":"Muñoz Jiménez","ranking":406},{"ordre":9,"llicencia":"11823821","nom":"Martí","cognoms":"Roca Cantoni","ranking":442},{"ordre":10,"llicencia":"11920081","nom":"Laurens","cognoms":"Schoningh","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-lleida-A":{"id":"M-lleida-A","sexe":"M","divisio":1,"club":"lleida","lletra":"A","nom":"CN Lleida A","capitans":["Manuel Matamoros"],"jugadors":[{"ordre":1,"llicencia":"11809649","nom":"Manuel","cognoms":"Matamoros","ranking":89},{"ordre":2,"llicencia":"11805043","nom":"Jesús","cognoms":"Domínguez","ranking":96},{"ordre":3,"llicencia":"11866359","nom":"Santi","cognoms":"Villarroel","ranking":132},{"ordre":4,"llicencia":"11820893","nom":"Cosme","cognoms":"Susi","ranking":150},{"ordre":5,"llicencia":"3603891","nom":"José","cognoms":"Talavera","ranking":161},{"ordre":6,"llicencia":"11245918","nom":"Pau","cognoms":"Garcia Casquero","ranking":163},{"ordre":7,"llicencia":"11819911","nom":"Òscar","cognoms":"Tarrós","ranking":164},{"ordre":8,"llicencia":"11823225","nom":"Àlex","cognoms":"Casany","ranking":214},{"ordre":9,"llicencia":"11847227","nom":"Jordi","cognoms":"Petit","ranking":252},{"ordre":10,"llicencia":"6526258","nom":"Israel","cognoms":"Vidal","ranking":266}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-lleida-B":{"id":"M-lleida-B","sexe":"M","divisio":2,"club":"lleida","lletra":"B","nom":"CN Lleida B","capitans":["Jaume Sorribas"],"jugadors":[{"ordre":1,"llicencia":"11805035","nom":"Joan","cognoms":"Plana","ranking":200},{"ordre":2,"llicencia":"11828491","nom":"Héctor","cognoms":"Llopart","ranking":310},{"ordre":3,"llicencia":"11821320","nom":"Carlos","cognoms":"Arranz","ranking":318},{"ordre":4,"llicencia":"11821320","nom":"Miguel Ángel","cognoms":"Bonilla","ranking":362},{"ordre":5,"llicencia":"11817452","nom":"Jaume","cognoms":"Sorribas","ranking":364},{"ordre":6,"llicencia":"3342029","nom":"Joan","cognoms":"Segura","ranking":385},{"ordre":7,"llicencia":"11917856","nom":"Miquel","cognoms":"Roman","ranking":402},{"ordre":8,"llicencia":"11713668","nom":"Alan","cognoms":"Llopart","ranking":402},{"ordre":9,"llicencia":"11817882","nom":"David","cognoms":"Pascual","ranking":439},{"ordre":10,"llicencia":"11862704","nom":"Josep M","cognoms":"Figueras","ranking":495},{"ordre":11,"llicencia":"11889615","nom":"Miquel","cognoms":"Vaquer","ranking":499},{"ordre":12,"llicencia":"11862655","nom":"Javier","cognoms":"Herrero","ranking":499},{"ordre":13,"llicencia":"11817816","nom":"Javier","cognoms":"Macías","ranking":499},{"ordre":14,"llicencia":"11817741","nom":"Alberto","cognoms":"Martínez","ranking":499},{"ordre":15,"llicencia":"11847087","nom":"Albert","cognoms":"Barrot","ranking":499},{"ordre":16,"llicencia":"11945576","nom":"Juan Carlos","cognoms":"Pascual","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-masnou-A":{"id":"M-masnou-A","sexe":"M","divisio":1,"club":"masnou","lletra":"A","nom":"BT El Masnou A","capitans":["Lluís Martínez Martínez"],"jugadors":[{"ordre":1,"llicencia":"11482982","nom":"Pol","cognoms":"Filella Martinez","ranking":4},{"ordre":2,"llicencia":"11571214","nom":"Marc","cognoms":"Filella Martinez","ranking":12},{"ordre":3,"llicencia":"6358528","nom":"Lluis","cognoms":"Martinez Martinez","ranking":18},{"ordre":4,"llicencia":"11890979","nom":"Mathieu","cognoms":"Besseyre","ranking":109},{"ordre":5,"llicencia":"11183613","nom":"Marti","cognoms":"Magriña Juan","ranking":146},{"ordre":6,"llicencia":"11249829","nom":"Toni","cognoms":"Llobet Vilaro","ranking":157},{"ordre":7,"llicencia":"11709732","nom":"Tess","cognoms":"Jutte","ranking":179},{"ordre":8,"llicencia":"6439302","nom":"Victor","cognoms":"Martinez Gimenez","ranking":204},{"ordre":9,"llicencia":"11945873","nom":"Gabriele","cognoms":"Ballarin","ranking":9999}],"horari":{"dia":"Dissabte","hora":"09:00"}},"equips/M-masnou-B":{"id":"M-masnou-B","sexe":"M","divisio":1,"club":"masnou","lletra":"B","nom":"BT El Masnou B","capitans":["David Soriano"],"jugadors":[{"ordre":1,"llicencia":"11589522","nom":"David","cognoms":"Soriano Lubian","ranking":35},{"ordre":2,"llicencia":"11774610","nom":"Kiku","cognoms":"Corominas Cortina","ranking":120},{"ordre":3,"llicencia":"2242775","nom":"Gerard","cognoms":"Casas Lluis","ranking":140},{"ordre":4,"llicencia":"11632800","nom":"Robert","cognoms":"Diez Cubilla","ranking":162},{"ordre":5,"llicencia":"10781319","nom":"Ariel Sebastián","cognoms":"Rodríguez Rodríguez","ranking":192},{"ordre":6,"llicencia":"6379730","nom":"Alex","cognoms":"Colomer Alujes","ranking":197},{"ordre":7,"llicencia":"6757530","nom":"Jordi","cognoms":"Rodríguez Sala","ranking":213},{"ordre":8,"llicencia":"11823524","nom":"Matias","cognoms":"Peiteado","ranking":217},{"ordre":9,"llicencia":"11670040","nom":"Xavier","cognoms":"Casas Castells","ranking":227},{"ordre":10,"llicencia":"11898080","nom":"Cristian","cognoms":"Santiago Gasco","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-masnou-C":{"id":"M-masnou-C","sexe":"M","divisio":2,"club":"masnou","lletra":"C","nom":"BT El Masnou C","capitans":["Diego Gimeno"],"jugadors":[{"ordre":1,"llicencia":"11812212","nom":"Diego","cognoms":"Gimeno Riveiro","ranking":278},{"ordre":2,"llicencia":"6273453","nom":"Joan","cognoms":"Costa Huguet","ranking":288},{"ordre":3,"llicencia":"2231710","nom":"Xavier","cognoms":"Miserachs Llobet","ranking":313},{"ordre":4,"llicencia":"11495802","nom":"Oscar","cognoms":"Bistue Guardiola","ranking":330},{"ordre":5,"llicencia":"11250165","nom":"Alfonso","cognoms":"Perez Loarte","ranking":335},{"ordre":6,"llicencia":"11532216","nom":"Marc","cognoms":"Serra Paracuellos","ranking":371},{"ordre":7,"llicencia":"6758786","nom":"Marc","cognoms":"Garrido Lopez","ranking":376},{"ordre":8,"llicencia":"11752583","nom":"Albert","cognoms":"Salarich Ruiz","ranking":407}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-masnou-D":{"id":"M-masnou-D","sexe":"M","divisio":3,"club":"masnou","lletra":"D","nom":"BT El Masnou D","capitans":["Alejandro Valencia"],"jugadors":[{"ordre":1,"llicencia":"11813286","nom":"Nicolas","cognoms":"Gallegos Fontsare","ranking":298},{"ordre":2,"llicencia":"11892248","nom":"Jose","cognoms":"Gallegos Tobella","ranking":376},{"ordre":3,"llicencia":"11935395","nom":"Ferran","cognoms":"Valle Vives","ranking":388},{"ordre":4,"llicencia":"11948033","nom":"Alejandro","cognoms":"Valencia Oliveras","ranking":9999},{"ordre":5,"llicencia":"6250724","nom":"Oriol","cognoms":"Raubert Nonell","ranking":9999},{"ordre":6,"llicencia":"11948091","nom":"Pol","cognoms":"Corona Guitart","ranking":9999},{"ordre":7,"llicencia":"6439518","nom":"Oriol","cognoms":"Carrasco Quirós","ranking":9999},{"ordre":8,"llicencia":"11949693","nom":"Raul","cognoms":"Ruiz Martinez","ranking":9999},{"ordre":9,"llicencia":"11960558","nom":"Daniel","cognoms":"Pérez Soriano","ranking":9999}],"horari":{"dia":"Diumenge","hora":"10:00"}},"equips/M-premia-A":{"id":"M-premia-A","sexe":"M","divisio":3,"club":"premia","lletra":"A","nom":"BT Premià de Mar A","capitans":["Leo Flores"],"jugadors":[{"ordre":1,"llicencia":"11874064","nom":"Leonardo Ariel","cognoms":"Flores","ranking":537},{"ordre":2,"llicencia":"11874147","nom":"Luis","cognoms":"Prades Lopez","ranking":537},{"ordre":3,"llicencia":"11874098","nom":"David","cognoms":"Villanueva Luque","ranking":599},{"ordre":4,"llicencia":"11874155","nom":"Juan Carlos","cognoms":"Escudero Avila","ranking":599},{"ordre":5,"llicencia":"11874105","nom":"Josep Ramón","cognoms":"Chavarria Miralles","ranking":645},{"ordre":6,"llicencia":"11874337","nom":"Francisco","cognoms":"Muñoz Rodriguez","ranking":645},{"ordre":7,"llicencia":"11874866","nom":"Salvador","cognoms":"Paez Martinez","ranking":645},{"ordre":8,"llicencia":"11914216","nom":"Xavier","cognoms":"Rigol Lopez","ranking":645},{"ordre":9,"llicencia":"11947275","nom":"Alberto","cognoms":"Marco Mir","ranking":9999},{"ordre":10,"llicencia":"11945336","nom":"Oriol","cognoms":"Biosca Bou","ranking":9999},{"ordre":11,"llicencia":"11947316","nom":"Gaetano","cognoms":"Mitolo","ranking":9999},{"ordre":12,"llicencia":"11947308","nom":"Jordi Rey","cognoms":"Rey Rey","ranking":9999},{"ordre":13,"llicencia":"11947267","nom":"Matias","cognoms":"Calvo Hernandez","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:30"}},"equips/M-santpol-A":{"id":"M-santpol-A","sexe":"M","divisio":2,"club":"santpol","lletra":"A","nom":"CN Sant Pol de Mar A","capitans":["Albert Solé"],"jugadors":[{"ordre":1,"llicencia":"6793112","nom":"Albert","cognoms":"Solé Buera","ranking":253},{"ordre":2,"llicencia":"11049419","nom":"Eduard","cognoms":"Rodriguez Lopez","ranking":269},{"ordre":3,"llicencia":"6793104","nom":"Gerard","cognoms":"Sole Buera","ranking":299},{"ordre":4,"llicencia":"11030426","nom":"Xavier","cognoms":"Garcia Rovira","ranking":301},{"ordre":5,"llicencia":"11584118","nom":"Guillermo","cognoms":"Kirchner Alarcon","ranking":302},{"ordre":6,"llicencia":"11910602","nom":"Ferran","cognoms":"Marti Boter","ranking":302},{"ordre":7,"llicencia":"11874907","nom":"Pol","cognoms":"Perez Quer","ranking":302},{"ordre":8,"llicencia":"11064904","nom":"David","cognoms":"Ferrer","ranking":302},{"ordre":9,"llicencia":"6909173","nom":"Javi","cognoms":"Cabot Tores","ranking":314},{"ordre":10,"llicencia":"6701975","nom":"Ignacio","cognoms":"Velasco Piera","ranking":314},{"ordre":11,"llicencia":"11874923","nom":"Lucas","cognoms":"Cabot Capon","ranking":357},{"ordre":12,"llicencia":"11950476","nom":"Joaquim","cognoms":"Juncosa Hernández","ranking":9999},{"ordre":13,"llicencia":"11946318","nom":"Adrian","cognoms":"Panadero Coarasa","ranking":9999},{"ordre":14,"llicencia":"11227388","nom":"Sergi","cognoms":"Zalabardo Fernández","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-santpol-B":{"id":"M-santpol-B","sexe":"M","divisio":2,"club":"santpol","lletra":"B","nom":"CN Sant Pol de Mar B","capitans":["Alberto Cabot"],"jugadors":[{"ordre":1,"llicencia":"11145754","nom":"Ricardo","cognoms":"Cabot Villagrasa","ranking":322},{"ordre":2,"llicencia":"11874890","nom":"Alberto","cognoms":"Cabot Jané","ranking":352},{"ordre":3,"llicencia":"6801692","nom":"Lucas","cognoms":"Cabot Jané","ranking":357},{"ordre":4,"llicencia":"11874056","nom":"Jose","cognoms":"Villagrasa Vizcaigana","ranking":357},{"ordre":5,"llicencia":"11421914","nom":"Tomás","cognoms":"Cabot Capon","ranking":366},{"ordre":6,"llicencia":"6475679","nom":"Ricardo","cognoms":"Cabot Jané","ranking":366},{"ordre":7,"llicencia":"11387223","nom":"Josep","cognoms":"Garcia Solera","ranking":380},{"ordre":8,"llicencia":"394370","nom":"Carlos","cognoms":"Rodriguez Marti","ranking":380},{"ordre":9,"llicencia":"11960590","nom":"Mario","cognoms":"Zalabardo Fernández","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-torredembarra-A":{"id":"M-torredembarra-A","sexe":"M","divisio":1,"club":"torredembarra","lletra":"A","nom":"CEBT Torredembarra A","capitans":["Ignasi López"],"jugadors":[{"ordre":1,"llicencia":"11689984","nom":"Ignasi","cognoms":"López Dalmau","ranking":31},{"ordre":2,"llicencia":"11576917","nom":"Teo","cognoms":"Baldrich Fornielles","ranking":39},{"ordre":3,"llicencia":"11716802","nom":"Ivan","cognoms":"Fortuny Ciuraneta","ranking":40},{"ordre":4,"llicencia":"6447834","nom":"Eric","cognoms":"Jara Lliteras","ranking":47},{"ordre":5,"llicencia":"11180023","nom":"Eduard","cognoms":"Infantes Olivé","ranking":50},{"ordre":6,"llicencia":"11681782","nom":"Nicolaj","cognoms":"Rasmussen","ranking":71},{"ordre":7,"llicencia":"6447694","nom":"Xavier","cognoms":"de la Fuente Huguet","ranking":94},{"ordre":8,"llicencia":"3678359","nom":"Eloi","cognoms":"Rius Sagrera","ranking":219}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-torredembarra-B":{"id":"M-torredembarra-B","sexe":"M","divisio":1,"club":"torredembarra","lletra":"B","nom":"CEBT Torredembarra B","capitans":["William de Santis"],"jugadors":[{"ordre":1,"llicencia":"11719434","nom":"Marc","cognoms":"Figuerola Rovira","ranking":49},{"ordre":2,"llicencia":"6156112","nom":"William","cognoms":"de Santis Maza","ranking":54},{"ordre":3,"llicencia":"11810159","nom":"Laurent","cognoms":"Bigot","ranking":59},{"ordre":4,"llicencia":"6259528","nom":"Josep","cognoms":"Armengol Fernández","ranking":64},{"ordre":5,"llicencia":"11715135","nom":"Flavio","cognoms":"di Pietrantonio Pellicer","ranking":69},{"ordre":6,"llicencia":"13269734","nom":"Marino","cognoms":"Jover Fernández","ranking":158},{"ordre":7,"llicencia":"11737923","nom":"Eugeni","cognoms":"Monfort Espí","ranking":283}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-torredembarra-C":{"id":"M-torredembarra-C","sexe":"M","divisio":2,"club":"torredembarra","lletra":"C","nom":"CEBT Torredembarra C","capitans":["Jorge Mazzanti"],"jugadors":[{"ordre":1,"llicencia":"6131156","nom":"David","cognoms":"Baldrich Giménez","ranking":103},{"ordre":2,"llicencia":"11715276","nom":"Jorge","cognoms":"Mazzanti","ranking":181},{"ordre":3,"llicencia":"11761485","nom":"Oriol","cognoms":"Garcia Medalla","ranking":183},{"ordre":4,"llicencia":"11683415","nom":"José Pascual","cognoms":"Grau Díaz","ranking":244},{"ordre":5,"llicencia":"11854107","nom":"Víctor","cognoms":"Brull Prats","ranking":347},{"ordre":6,"llicencia":"11738533","nom":"Ben","cognoms":"Horbury","ranking":354},{"ordre":7,"llicencia":"11852276","nom":"Alfons","cognoms":"Campoy Campillo","ranking":368},{"ordre":8,"llicencia":"11672583","nom":"Hugo","cognoms":"Vives Pérez","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-torredembarra-D":{"id":"M-torredembarra-D","sexe":"M","divisio":3,"club":"torredembarra","lletra":"D","nom":"CEBT Torredembarra D","capitans":["Manel Arrasa"],"jugadors":[{"ordre":1,"llicencia":"11715127","nom":"Antoni","cognoms":"Mata Ubiedo","ranking":493},{"ordre":2,"llicencia":"11760768","nom":"Manel","cognoms":"Arrasa García","ranking":578},{"ordre":3,"llicencia":"2039362","nom":"Fernando","cognoms":"Cortés Fernández","ranking":604},{"ordre":4,"llicencia":"11880681","nom":"Alejandro","cognoms":"Mestre Jimenez","ranking":623},{"ordre":5,"llicencia":"11811991","nom":"Jaime","cognoms":"Martínez Barbería","ranking":9999},{"ordre":6,"llicencia":"11944982","nom":"Pablo","cognoms":"Alcántara Hidalgo","ranking":9999},{"ordre":7,"llicencia":"11945005","nom":"Sergi","cognoms":"Sanz Arxer","ranking":9999},{"ordre":8,"llicencia":"11944990","nom":"Paudge","cognoms":"Brennan","ranking":9999}],"horari":{"dia":"Dissabte","hora":"10:00"}},"equips/M-viktoria-A":{"id":"M-viktoria-A","sexe":"M","divisio":3,"club":"viktoria","lletra":"A","nom":"Viktoria BTC A","capitans":["Joaquín Cano"],"jugadors":[{"ordre":1,"llicencia":"11818418","nom":"Albert","cognoms":"Gascon Nogueras","ranking":251},{"ordre":2,"llicencia":"11721455","nom":"David","cognoms":"Martin Martinez","ranking":274},{"ordre":3,"llicencia":"11867803","nom":"Joaquin","cognoms":"Cano Polania","ranking":426},{"ordre":4,"llicencia":"11725431","nom":"Carlos","cognoms":"Garcia Gonzalez","ranking":468},{"ordre":5,"llicencia":"11908863","nom":"Edward Charles","cognoms":"Long","ranking":496},{"ordre":6,"llicencia":"11726786","nom":"Vicenç","cognoms":"López Iranzo","ranking":514},{"ordre":7,"llicencia":"11818476","nom":"David","cognoms":"Benito Pujol","ranking":514},{"ordre":8,"llicencia":"11908871","nom":"Rafael Da Silva","cognoms":"Rossi","ranking":514},{"ordre":9,"llicencia":"11921526","nom":"Marcial Esteban","cognoms":"Morales Olavarria","ranking":541},{"ordre":10,"llicencia":"11946649","nom":"Merlam","cognoms":"Zambrano","ranking":9999},{"ordre":11,"llicencia":"11947449","nom":"Wilfredo","cognoms":"Ruzi","ranking":9999},{"ordre":12,"llicencia":"11750016","nom":"Agustin","cognoms":"Bossoloasco","ranking":9999}],"horari":{"dia":"Diumenge","hora":"09:00"}},"equips/M-viktoria-B":{"id":"M-viktoria-B","sexe":"M","divisio":1,"club":"viktoria","lletra":"B","nom":"Viktoria BTC B","capitans":["Martí Grau"],"jugadors":[{"ordre":1,"llicencia":"11725449","nom":"Marti","cognoms":"Grau Puigdomenech","ranking":44},{"ordre":2,"llicencia":"11817387","nom":"Jaume","cognoms":"Colominas Pladevall","ranking":91},{"ordre":3,"llicencia":"11754430","nom":"Alvaro","cognoms":"Martin Sancho","ranking":167},{"ordre":4,"llicencia":"11818442","nom":"Jordi","cognoms":"Gascon Nogueras","ranking":168},{"ordre":5,"llicencia":"11899913","nom":"Enrique","cognoms":"Alcalde Grau","ranking":226},{"ordre":6,"llicencia":"11725423","nom":"David","cognoms":"Rosell Mateos","ranking":260},{"ordre":7,"llicencia":"11711167","nom":"Francisco","cognoms":"Romano","ranking":261},{"ordre":8,"llicencia":"11879890","nom":"Ivo","cognoms":"Emilov Karakashev","ranking":265},{"ordre":9,"llicencia":"6498762","nom":"David","cognoms":"Puy Ampurdanes","ranking":430},{"ordre":10,"llicencia":"11946657","nom":"Gonzalo","cognoms":"Leiva Imhoff","ranking":9999}],"horari":{"dia":"Diumenge","hora":"12:00"}},"calendari/M1":{"divisio":"M1","eliminatories":[{"id":"M1-J1-1","jornada":1,"data":"2026-11-08","local":"M-castelldefels-A","visitant":"M-lleida-A"},{"id":"M1-J1-2","jornada":1,"data":"2026-11-08","local":"M-masnou-A","visitant":"M-viktoria-B"},{"id":"M1-J1-3","jornada":1,"data":"2026-11-08","local":"M-barcelona-A","visitant":"M-torredembarra-A"},{"id":"M1-J1-4","jornada":1,"data":"2026-11-08","local":"M-masnou-B","visitant":"M-torredembarra-B"},{"id":"M1-J2-1","jornada":2,"data":"2026-11-22","local":"M-viktoria-B","visitant":"M-castelldefels-A"},{"id":"M1-J2-2","jornada":2,"data":"2026-11-22","local":"M-lleida-A","visitant":"M-masnou-A"},{"id":"M1-J2-3","jornada":2,"data":"2026-11-22","local":"M-torredembarra-B","visitant":"M-torredembarra-A"},{"id":"M1-J2-4","jornada":2,"data":"2026-11-22","local":"M-barcelona-A","visitant":"M-masnou-B"},{"id":"M1-J3-1","jornada":3,"data":"2026-12-13","local":"M-castelldefels-A","visitant":"M-barcelona-A"},{"id":"M1-J3-2","jornada":3,"data":"2026-12-13","local":"M-masnou-A","visitant":"M-torredembarra-B"},{"id":"M1-J3-3","jornada":3,"data":"2026-12-13","local":"M-torredembarra-A","visitant":"M-masnou-B"},{"id":"M1-J3-4","jornada":3,"data":"2026-12-13","local":"M-viktoria-B","visitant":"M-lleida-A"},{"id":"M1-J4-1","jornada":4,"data":"2027-01-10","local":"M-torredembarra-B","visitant":"M-castelldefels-A"},{"id":"M1-J4-2","jornada":4,"data":"2027-01-10","local":"M-masnou-B","visitant":"M-masnou-A"},{"id":"M1-J4-3","jornada":4,"data":"2027-01-10","local":"M-lleida-A","visitant":"M-barcelona-A"},{"id":"M1-J4-4","jornada":4,"data":"2027-01-10","local":"M-torredembarra-A","visitant":"M-viktoria-B"},{"id":"M1-J5-1","jornada":5,"data":"2027-01-24","local":"M-castelldefels-A","visitant":"M-masnou-B"},{"id":"M1-J5-2","jornada":5,"data":"2027-01-24","local":"M-masnou-A","visitant":"M-torredembarra-A"},{"id":"M1-J5-3","jornada":5,"data":"2027-01-24","local":"M-torredembarra-B","visitant":"M-lleida-A"},{"id":"M1-J5-4","jornada":5,"data":"2027-01-24","local":"M-barcelona-A","visitant":"M-viktoria-B"},{"id":"M1-J6-1","jornada":6,"data":"2027-02-07","local":"M-torredembarra-A","visitant":"M-castelldefels-A"},{"id":"M1-J6-2","jornada":6,"data":"2027-02-07","local":"M-lleida-A","visitant":"M-masnou-B"},{"id":"M1-J6-3","jornada":6,"data":"2027-02-07","local":"M-viktoria-B","visitant":"M-torredembarra-B"},{"id":"M1-J6-4","jornada":6,"data":"2027-02-07","local":"M-masnou-A","visitant":"M-barcelona-A"},{"id":"M1-J7-1","jornada":7,"data":"2027-04-04","local":"M-castelldefels-A","visitant":"M-masnou-A"},{"id":"M1-J7-2","jornada":7,"data":"2027-04-04","local":"M-torredembarra-A","visitant":"M-lleida-A"},{"id":"M1-J7-3","jornada":7,"data":"2027-04-04","local":"M-masnou-B","visitant":"M-viktoria-B"},{"id":"M1-J7-4","jornada":7,"data":"2027-04-04","local":"M-torredembarra-B","visitant":"M-barcelona-A"}]},"calendari/M2":{"divisio":"M2","eliminatories":[{"id":"M2-J1-1","jornada":1,"data":"2026-11-15","local":"M-badalona-A","visitant":"M-lleida-B"},{"id":"M2-J1-2","jornada":1,"data":"2026-11-15","local":"M-castelldefels-B","visitant":"M-santpol-A"},{"id":"M2-J1-3","jornada":1,"data":"2026-11-15","local":"M-santpol-B","visitant":"M-bonarena-A"},{"id":"M2-J1-4","jornada":1,"data":"2026-11-15","local":"M-torredembarra-C","visitant":"M-masnou-C"},{"id":"M2-J2-1","jornada":2,"data":"2026-11-29","local":"M-santpol-A","visitant":"M-badalona-A"},{"id":"M2-J2-2","jornada":2,"data":"2026-11-29","local":"M-lleida-B","visitant":"M-castelldefels-B"},{"id":"M2-J2-3","jornada":2,"data":"2026-11-29","local":"M-masnou-C","visitant":"M-bonarena-A"},{"id":"M2-J2-4","jornada":2,"data":"2026-11-29","local":"M-santpol-B","visitant":"M-torredembarra-C"},{"id":"M2-J3-1","jornada":3,"data":"2026-12-20","local":"M-badalona-A","visitant":"M-santpol-B"},{"id":"M2-J3-2","jornada":3,"data":"2026-12-20","local":"M-castelldefels-B","visitant":"M-masnou-C"},{"id":"M2-J3-3","jornada":3,"data":"2026-12-20","local":"M-bonarena-A","visitant":"M-torredembarra-C"},{"id":"M2-J3-4","jornada":3,"data":"2026-12-20","local":"M-santpol-A","visitant":"M-lleida-B"},{"id":"M2-J4-1","jornada":4,"data":"2027-01-17","local":"M-masnou-C","visitant":"M-badalona-A"},{"id":"M2-J4-2","jornada":4,"data":"2027-01-17","local":"M-torredembarra-C","visitant":"M-castelldefels-B"},{"id":"M2-J4-3","jornada":4,"data":"2027-01-17","local":"M-lleida-B","visitant":"M-santpol-B"},{"id":"M2-J4-4","jornada":4,"data":"2027-01-17","local":"M-bonarena-A","visitant":"M-santpol-A"},{"id":"M2-J5-1","jornada":5,"data":"2027-01-31","local":"M-badalona-A","visitant":"M-torredembarra-C"},{"id":"M2-J5-2","jornada":5,"data":"2027-01-31","local":"M-castelldefels-B","visitant":"M-bonarena-A"},{"id":"M2-J5-3","jornada":5,"data":"2027-01-31","local":"M-masnou-C","visitant":"M-lleida-B"},{"id":"M2-J5-4","jornada":5,"data":"2027-01-31","local":"M-santpol-B","visitant":"M-santpol-A"},{"id":"M2-J6-1","jornada":6,"data":"2027-02-14","local":"M-bonarena-A","visitant":"M-badalona-A"},{"id":"M2-J6-2","jornada":6,"data":"2027-02-14","local":"M-lleida-B","visitant":"M-torredembarra-C"},{"id":"M2-J6-3","jornada":6,"data":"2027-02-14","local":"M-santpol-A","visitant":"M-masnou-C"},{"id":"M2-J6-4","jornada":6,"data":"2027-02-14","local":"M-castelldefels-B","visitant":"M-santpol-B"},{"id":"M2-J7-1","jornada":7,"data":"2027-02-28","local":"M-badalona-A","visitant":"M-castelldefels-B"},{"id":"M2-J7-2","jornada":7,"data":"2027-02-28","local":"M-bonarena-A","visitant":"M-lleida-B"},{"id":"M2-J7-3","jornada":7,"data":"2027-02-28","local":"M-torredembarra-C","visitant":"M-santpol-A"},{"id":"M2-J7-4","jornada":7,"data":"2027-02-28","local":"M-masnou-C","visitant":"M-santpol-B"}]},"calendari/M3":{"divisio":"M3","eliminatories":[{"id":"M3-J1-1","jornada":1,"data":"2026-11-08","local":"M-masnou-D","visitant":"M-bonarena-B"},{"id":"M3-J1-2","jornada":1,"data":"2026-11-08","local":"M-torredembarra-D","visitant":"M-premia-A"},{"id":"M3-J1-3","jornada":1,"data":"2026-11-08","local":"M-viktoria-A","visitant":"M-castelldefels-C"},{"id":"M3-J1-4","jornada":1,"data":"2026-11-08","local":"M-badalona-B","visitant":"M-barcelona-B"},{"id":"M3-J2-1","jornada":2,"data":"2026-11-22","local":"M-premia-A","visitant":"M-masnou-D"},{"id":"M3-J2-2","jornada":2,"data":"2026-11-22","local":"M-bonarena-B","visitant":"M-torredembarra-D"},{"id":"M3-J2-3","jornada":2,"data":"2026-11-22","local":"M-barcelona-B","visitant":"M-castelldefels-C"},{"id":"M3-J2-4","jornada":2,"data":"2026-11-22","local":"M-viktoria-A","visitant":"M-badalona-B"},{"id":"M3-J3-1","jornada":3,"data":"2026-12-13","local":"M-masnou-D","visitant":"M-viktoria-A"},{"id":"M3-J3-2","jornada":3,"data":"2026-12-13","local":"M-torredembarra-D","visitant":"M-barcelona-B"},{"id":"M3-J3-3","jornada":3,"data":"2026-12-13","local":"M-castelldefels-C","visitant":"M-badalona-B"},{"id":"M3-J3-4","jornada":3,"data":"2026-12-13","local":"M-premia-A","visitant":"M-bonarena-B"},{"id":"M3-J4-1","jornada":4,"data":"2027-01-10","local":"M-barcelona-B","visitant":"M-masnou-D"},{"id":"M3-J4-2","jornada":4,"data":"2027-01-10","local":"M-badalona-B","visitant":"M-torredembarra-D"},{"id":"M3-J4-3","jornada":4,"data":"2027-01-10","local":"M-bonarena-B","visitant":"M-viktoria-A"},{"id":"M3-J4-4","jornada":4,"data":"2027-01-10","local":"M-castelldefels-C","visitant":"M-premia-A"},{"id":"M3-J5-1","jornada":5,"data":"2027-01-24","local":"M-masnou-D","visitant":"M-badalona-B"},{"id":"M3-J5-2","jornada":5,"data":"2027-01-24","local":"M-torredembarra-D","visitant":"M-castelldefels-C"},{"id":"M3-J5-3","jornada":5,"data":"2027-01-24","local":"M-barcelona-B","visitant":"M-bonarena-B"},{"id":"M3-J5-4","jornada":5,"data":"2027-01-24","local":"M-viktoria-A","visitant":"M-premia-A"},{"id":"M3-J6-1","jornada":6,"data":"2027-02-07","local":"M-castelldefels-C","visitant":"M-masnou-D"},{"id":"M3-J6-2","jornada":6,"data":"2027-02-07","local":"M-bonarena-B","visitant":"M-badalona-B"},{"id":"M3-J6-3","jornada":6,"data":"2027-02-07","local":"M-premia-A","visitant":"M-barcelona-B"},{"id":"M3-J6-4","jornada":6,"data":"2027-02-07","local":"M-torredembarra-D","visitant":"M-viktoria-A"},{"id":"M3-J7-1","jornada":7,"data":"2027-04-04","local":"M-masnou-D","visitant":"M-torredembarra-D"},{"id":"M3-J7-2","jornada":7,"data":"2027-04-04","local":"M-castelldefels-C","visitant":"M-bonarena-B"},{"id":"M3-J7-3","jornada":7,"data":"2027-04-04","local":"M-badalona-B","visitant":"M-premia-A"},{"id":"M3-J7-4","jornada":7,"data":"2027-04-04","local":"M-barcelona-B","visitant":"M-viktoria-A"}]},"calendari/F1":{"divisio":"F1","eliminatories":[{"id":"F1-J1-1","jornada":1,"data":"2026-11-08","local":"F-torredembarra-A","visitant":"F-viktoria-A"},{"id":"F1-J1-2","jornada":1,"data":"2026-11-08","local":"F-castelldefels-A","visitant":"F-lleida-A"},{"id":"F1-J1-3","jornada":1,"data":"2026-11-08","local":"F-barcelona-B","visitant":"F-masnou-A"},{"id":"F1-J1-4","jornada":1,"data":"2026-11-08","local":"F-barcelona-A","visitant":"F-castelldefels-B"},{"id":"F1-J2-1","jornada":2,"data":"2026-11-22","local":"F-lleida-A","visitant":"F-torredembarra-A"},{"id":"F1-J2-2","jornada":2,"data":"2026-11-22","local":"F-viktoria-A","visitant":"F-castelldefels-A"},{"id":"F1-J2-3","jornada":2,"data":"2026-11-22","local":"F-castelldefels-B","visitant":"F-masnou-A"},{"id":"F1-J2-4","jornada":2,"data":"2026-11-22","local":"F-barcelona-B","visitant":"F-barcelona-A"},{"id":"F1-J3-1","jornada":3,"data":"2026-12-13","local":"F-torredembarra-A","visitant":"F-barcelona-B"},{"id":"F1-J3-2","jornada":3,"data":"2026-12-13","local":"F-castelldefels-A","visitant":"F-castelldefels-B"},{"id":"F1-J3-3","jornada":3,"data":"2026-12-13","local":"F-masnou-A","visitant":"F-barcelona-A"},{"id":"F1-J3-4","jornada":3,"data":"2026-12-13","local":"F-lleida-A","visitant":"F-viktoria-A"},{"id":"F1-J4-1","jornada":4,"data":"2027-01-10","local":"F-castelldefels-B","visitant":"F-torredembarra-A"},{"id":"F1-J4-2","jornada":4,"data":"2027-01-10","local":"F-barcelona-A","visitant":"F-castelldefels-A"},{"id":"F1-J4-3","jornada":4,"data":"2027-01-10","local":"F-viktoria-A","visitant":"F-barcelona-B"},{"id":"F1-J4-4","jornada":4,"data":"2027-01-10","local":"F-masnou-A","visitant":"F-lleida-A"},{"id":"F1-J5-1","jornada":5,"data":"2027-01-24","local":"F-torredembarra-A","visitant":"F-barcelona-A"},{"id":"F1-J5-2","jornada":5,"data":"2027-01-24","local":"F-castelldefels-A","visitant":"F-masnou-A"},{"id":"F1-J5-3","jornada":5,"data":"2027-01-24","local":"F-castelldefels-B","visitant":"F-viktoria-A"},{"id":"F1-J5-4","jornada":5,"data":"2027-01-24","local":"F-barcelona-B","visitant":"F-lleida-A"},{"id":"F1-J6-1","jornada":6,"data":"2027-02-07","local":"F-masnou-A","visitant":"F-torredembarra-A"},{"id":"F1-J6-2","jornada":6,"data":"2027-02-07","local":"F-viktoria-A","visitant":"F-barcelona-A"},{"id":"F1-J6-3","jornada":6,"data":"2027-02-07","local":"F-lleida-A","visitant":"F-castelldefels-B"},{"id":"F1-J6-4","jornada":6,"data":"2027-02-07","local":"F-castelldefels-A","visitant":"F-barcelona-B"},{"id":"F1-J7-1","jornada":7,"data":"2027-04-04","local":"F-torredembarra-A","visitant":"F-castelldefels-A"},{"id":"F1-J7-2","jornada":7,"data":"2027-04-04","local":"F-masnou-A","visitant":"F-viktoria-A"},{"id":"F1-J7-3","jornada":7,"data":"2027-04-04","local":"F-barcelona-A","visitant":"F-lleida-A"},{"id":"F1-J7-4","jornada":7,"data":"2027-04-04","local":"F-castelldefels-B","visitant":"F-barcelona-B"}]},"calendari/F2":{"divisio":"F2","eliminatories":[{"id":"F2-J1-1","jornada":1,"data":"2026-11-15","local":"F-bonarena-A","visitant":"F-torredembarra-B"},{"id":"F2-J1-2","jornada":1,"data":"2026-11-15","local":"F-viktoria-B","visitant":"F-barcelona-C"},{"id":"F2-J1-3","jornada":1,"data":"2026-11-15","local":"F-torredembarra-C","visitant":"F-santpol-A"},{"id":"F2-J1-4","jornada":1,"data":"2026-11-15","local":"F-lleida-B","visitant":"F-masnou-B"},{"id":"F2-J2-1","jornada":2,"data":"2026-11-29","local":"F-barcelona-C","visitant":"F-bonarena-A"},{"id":"F2-J2-2","jornada":2,"data":"2026-11-29","local":"F-torredembarra-B","visitant":"F-viktoria-B"},{"id":"F2-J2-3","jornada":2,"data":"2026-11-29","local":"F-masnou-B","visitant":"F-santpol-A"},{"id":"F2-J2-4","jornada":2,"data":"2026-11-29","local":"F-torredembarra-C","visitant":"F-lleida-B"},{"id":"F2-J3-1","jornada":3,"data":"2026-12-20","local":"F-bonarena-A","visitant":"F-torredembarra-C"},{"id":"F2-J3-2","jornada":3,"data":"2026-12-20","local":"F-viktoria-B","visitant":"F-masnou-B"},{"id":"F2-J3-3","jornada":3,"data":"2026-12-20","local":"F-santpol-A","visitant":"F-lleida-B"},{"id":"F2-J3-4","jornada":3,"data":"2026-12-20","local":"F-barcelona-C","visitant":"F-torredembarra-B"},{"id":"F2-J4-1","jornada":4,"data":"2027-01-17","local":"F-masnou-B","visitant":"F-bonarena-A"},{"id":"F2-J4-2","jornada":4,"data":"2027-01-17","local":"F-lleida-B","visitant":"F-viktoria-B"},{"id":"F2-J4-3","jornada":4,"data":"2027-01-17","local":"F-torredembarra-B","visitant":"F-torredembarra-C"},{"id":"F2-J4-4","jornada":4,"data":"2027-01-17","local":"F-santpol-A","visitant":"F-barcelona-C"},{"id":"F2-J5-1","jornada":5,"data":"2027-01-31","local":"F-bonarena-A","visitant":"F-lleida-B"},{"id":"F2-J5-2","jornada":5,"data":"2027-01-31","local":"F-viktoria-B","visitant":"F-santpol-A"},{"id":"F2-J5-3","jornada":5,"data":"2027-01-31","local":"F-masnou-B","visitant":"F-torredembarra-B"},{"id":"F2-J5-4","jornada":5,"data":"2027-01-31","local":"F-torredembarra-C","visitant":"F-barcelona-C"},{"id":"F2-J6-1","jornada":6,"data":"2027-02-14","local":"F-santpol-A","visitant":"F-bonarena-A"},{"id":"F2-J6-2","jornada":6,"data":"2027-02-14","local":"F-torredembarra-B","visitant":"F-lleida-B"},{"id":"F2-J6-3","jornada":6,"data":"2027-02-14","local":"F-barcelona-C","visitant":"F-masnou-B"},{"id":"F2-J6-4","jornada":6,"data":"2027-02-14","local":"F-viktoria-B","visitant":"F-torredembarra-C"},{"id":"F2-J7-1","jornada":7,"data":"2027-02-28","local":"F-bonarena-A","visitant":"F-viktoria-B"},{"id":"F2-J7-2","jornada":7,"data":"2027-02-28","local":"F-santpol-A","visitant":"F-torredembarra-B"},{"id":"F2-J7-3","jornada":7,"data":"2027-02-28","local":"F-lleida-B","visitant":"F-barcelona-C"},{"id":"F2-J7-4","jornada":7,"data":"2027-02-28","local":"F-masnou-B","visitant":"F-torredembarra-C"}]},"calendari/F3":{"divisio":"F3","eliminatories":[{"id":"F3-J1-1","jornada":1,"data":"2026-11-08","local":"F-badalona-A","visitant":"F-castelldefels-C"},{"id":"F3-J1-2","jornada":1,"data":"2026-11-08","local":"F-premia-A","visitant":"F-viktoria-C"},{"id":"F3-J2-1","jornada":2,"data":"2026-11-22","local":"F-viktoria-C","visitant":"F-badalona-A"},{"id":"F3-J2-2","jornada":2,"data":"2026-11-22","local":"F-castelldefels-C","visitant":"F-premia-A"},{"id":"F3-J3-1","jornada":3,"data":"2026-12-13","local":"F-badalona-A","visitant":"F-premia-A"},{"id":"F3-J3-2","jornada":3,"data":"2026-12-13","local":"F-viktoria-C","visitant":"F-castelldefels-C"},{"id":"F3-J4-1","jornada":4,"data":"2027-01-10","local":"F-castelldefels-C","visitant":"F-badalona-A"},{"id":"F3-J4-2","jornada":4,"data":"2027-01-10","local":"F-viktoria-C","visitant":"F-premia-A"},{"id":"F3-J5-1","jornada":5,"data":"2027-01-24","local":"F-badalona-A","visitant":"F-viktoria-C"},{"id":"F3-J5-2","jornada":5,"data":"2027-01-24","local":"F-premia-A","visitant":"F-castelldefels-C"},{"id":"F3-J6-1","jornada":6,"data":"2027-02-07","local":"F-premia-A","visitant":"F-badalona-A"},{"id":"F3-J6-2","jornada":6,"data":"2027-02-07","local":"F-castelldefels-C","visitant":"F-viktoria-C"}]},"validades/M1-J1-3":{"dataJoc":"2026-11-08","divisio":"M1","eliminatoria":"M1-J1-3","enviadaAt":"2026-11-13T19:26:17.987Z","partits":[{"L":[3,6],"V":[3,7],"estat":"jugat","sets":[[6,3],[3,6],[6,10]]},{"L":[4,5],"V":[2,8],"estat":"jugat","sets":[[3,6],[4,6]]},{"L":[4,6],"V":[2,7],"estat":"jugat","sets":[[3,6],[6,7]]},{"L":[5,9],"V":[3,8],"estat":"jugat","sets":[[0,6],[6,7]]},{"L":[4,3],"V":[2,3],"estat":"jugat","sets":[[7,5],[6,7],[4,10]]},{"L":[9,10],"V":[7,8],"estat":"jugat","sets":[[1,6],[2,6]]}],"tipus":"jugada","validadaAt":"2026-11-13T19:26:18.361Z"},"validades/M3-J1-3":{"dataJoc":"2026-11-07","divisio":"M3","eliminatoria":"M3-J1-3","enviadaAt":"2026-11-13T19:41:01.494Z","partits":[{"L":[1,7],"V":[2,3],"estat":"jugat","sets":[[2,6],[0,6]]},{"L":[3,6],"V":[1,5],"estat":"jugat","sets":[[2,6],[3,6]]},{"L":[1,6],"V":[2,6],"estat":"jugat","sets":[[7,6],[4,6],[10,7]]},{"L":[3,11],"V":[5,8],"estat":"jugat","sets":[[2,6],[6,4],[10,12]]},{"L":[1,3],"V":[1,2],"estat":"jugat","sets":[[6,7],[5,7]]},{"L":[6,7],"V":[5,3],"estat":"jugat","sets":[[0,6],[3,6]]}],"tipus":"jugada","validadaAt":"2026-11-13T19:41:02.040Z"}};const meta={fromCache:false,hasPendingWrites:false};
+const ro=async()=>{throw {code:'invalid_argument'}};
+const doc=p=>({get:async()=>({exists:p in store,data:()=>store[p],metadata:meta}),set:ro,update:ro,delete:ro,
+ onSnapshot:f=>{setTimeout(()=>f({exists:p in store,data:()=>store[p],metadata:meta}),0);return()=>{}}});
+const col=c=>({onSnapshot:f=>{setTimeout(()=>f({docs:Object.keys(store).filter(k=>k.startsWith(c+'/')&&k.split('/').length===2).map(k=>({id:k.split('/')[1],data:()=>store[k]})),metadata:meta}),0);return()=>{}}});
+window.claude={use:async n=>n==='db'?{doc,collection:col}:null};})();
+</script>
+<script src="engine.js"></script>
+<script>
+"use strict";
+const E=window.LligaEngine;
+const MESOS=["gener","febrer","març","abril","maig","juny","juliol","agost","setembre","octubre","novembre","desembre"];
+const deMes=m=>(/^[aeiou]/.test(m)?"d'":"de ")+m;
+const S={lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
+  admin:false,canWrite:null,db:null,assets:null,sample:null,imgOk:false,llegint:false,uid:null,user:null,rols:null,sol:{},meva:null,capSel:[],capNom:"",capMsg:null,noms:{},rolsMsg:null,cerca:{},filtre:(()=>{try{return localStorage.getItem("lctp.filtre")||""}catch(e){return ""}})(),
+  loaded:{lliga:false,equips:false,calendari:false,validades:false},timeout:false,error:null,noDb:false,
+  draft:null,editing:false,flash:null,busy:false,sorteigObert:null,equipObert:null,
+  div:(()=>{try{return localStorage.getItem("lctp.div")}catch(e){return null}})()};
+const $=s=>document.querySelector(s);
+const el=(tag,attrs={},...kids)=>{const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k==="class")n.className=v;else if(k==="text")n.textContent=v;else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);else n.setAttribute(k,v===true?"":v)}for(const k of kids)if(k!=null&&k!==false)n.append(k);return n};
+
+/* ---------- dates ---------- */
+function parseISO(s){const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function capSetmana(iso){const dg=parseISO(iso),ds=addDays(dg,-1);const a=`dissabte ${ds.getDate()}`,b=`diumenge ${dg.getDate()} ${deMes(MESOS[dg.getMonth()])}`;return ds.getMonth()===dg.getMonth()?`${a} i ${b}`:`${a} ${deMes(MESOS[ds.getMonth()])} i ${b}`}
+function diaOficial(iso,h){const dg=parseISO(iso),d=h.dia==="Dissabte"?addDays(dg,-1):dg;return `${h.dia.toLowerCase()} ${d.getDate()} ${deMes(MESOS[d.getMonth()])}, ${h.hora} h`}
+function dataLlarga(iso){const d=parseISO(iso);return `${d.getDate()} ${deMes(MESOS[d.getMonth()])} de ${d.getFullYear()}`}
+function today(){const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())}
+function isoToday(){const t=today();return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`}
+const foraTermini=f=>addDays(parseISO(f.data),15)<today();
+
+/* ---------- dades ---------- */
+const clubNom=id=>(S.lliga?.clubs||[]).find(c=>c.id===id)?.nom||id;
+const divisions=()=>S.lliga?.divisions||[];
+const currentDiv=()=>divisions().find(d=>d.id===S.div)||divisions()[0];
+const totesElims=()=>Object.values(S.calendari).flatMap(c=>(c.eliminatories||[]).map(f=>({...f,divisio:c.divisio})));
+const elim=id=>totesElims().find(f=>f.id===id);
+const nomEq=id=>S.equips[id]?.nom||id;
+const jugador=(eq,ordre)=>(S.equips[eq]?.jugadors||[]).find(j=>j.ordre===ordre);
+const nomJug=(eq,o)=>{const j=jugador(eq,o);return j?`${j.nom} ${j.cognoms}`:`#${o}`};
+const parella=(eq,par)=>par&&par.length===2?par.map(o=>nomJug(eq,o)).join(" / "):"—";
+
+/* ---------- navegació ---------- */
+function view(){
+  const h=location.hash.slice(1);
+  if(h.startsWith("acta-"))return "acta";
+  if((h==="avisos"||h==="validacio"||h==="rols")&&S.admin)return h;
+  if(h==="capita"&&!S.admin&&S.uid&&S.canWrite!==false)return h;
+  return ["equips","classificacio"].includes(h)?h:"calendari";
+}
+function renderPicker(){
+  const v=view(); const ds=divisions();
+  $("#divPicker").hidden=!ds.length||!["calendari","classificacio","equips"].includes(v);
+  for(const sx of ["M","F"]){
+    const box=$("#chips"+sx); box.replaceChildren();
+    for(const d of ds.filter(d=>d.sexe===sx)){
+      box.append(el("button",{class:"chip",type:"button",id:"div-"+d.id,"aria-pressed":String(d.id===currentDiv()?.id),"aria-label":d.nom,text:d.num+"a",
+        onclick:()=>{ponDivisio(d.id);if(S.filtre&&!filtreAplica(d)){S.filtre="";guardaFiltre()}render()}}));
+    }
+  }
+}
+function stateMsg(){
+  if(S.error)return "No s'han pogut llegir les dades de la lliga. Torna a obrir la pàgina més tard.";
+  if(S.noDb)return "Per veure la lliga cal tenir la sessió iniciada a claude.ai i accés a aquesta pàgina.";
+  const all=S.loaded.lliga&&S.loaded.equips&&S.loaded.calendari&&S.loaded.validades;
+  if(all&&!S.lliga)return "Encara no s'han carregat les dades de la lliga.";
+  if(!all)return S.timeout?"Les dades triguen a arribar. Comprova la connexió.":"Carregant dades de la lliga…";
+  return null;
+}
+const pendents=()=>Object.values(S.actes).filter(a=>a.estat==="pendent"&&!S.validades[a.eliminatoria]);
+
+/* ---------- filtre per equip o club (global: canvia de divisió sol) ---------- */
+const divDe=id=>divisions().find(x=>x.equips.includes(id));
+const clubEquips=c=>divisions().flatMap(x=>x.equips.filter(id=>S.equips[id]?.club===c));
+function filtreAplica(d,f=S.filtre){
+  if(!f)return false;
+  return f.startsWith("club:")?d.equips.some(id=>S.equips[id]?.club===f.slice(5)):d.equips.includes(f);
+}
+const filtreValid=d=>filtreAplica(d)?S.filtre:"";
+const filtreCoincideix=(d,id)=>{const f=filtreValid(d);return !f||(f.startsWith("club:")?S.equips[id]?.club===f.slice(5):id===f)};
+const guardaFiltre=()=>{try{localStorage.setItem("lctp.filtre",S.filtre)}catch(e){}};
+function ponDivisio(id){S.div=id;try{localStorage.setItem("lctp.div",id)}catch(e){}}
+function setFiltre(v){
+  S.filtre=v; guardaFiltre();
+  if(v){
+    const cur=currentDiv();
+    const dv=v.startsWith("club:")?(filtreAplica(cur,v)?cur:divisions().find(x=>filtreAplica(x,v))):divDe(v);
+    if(dv)ponDivisio(dv.id);
+  }
+  render();
+}
+const abrevDiv=d=>`${d.num}a ${d.sexe==="M"?"Masc.":"Fem."}`;
+function filtreBar(d){
+  const f=filtreValid(d);
+  const sel=el("select",{id:"filtre-equip","aria-label":"Selecciona un equip o un club",onchange:e=>setFiltre(e.target.value)});
+  sel.append(el("option",{value:"",text:"Tots els equips"}));
+  const clubs=[...new Set(divisions().flatMap(x=>x.equips).map(id=>S.equips[id]?.club).filter(Boolean))].sort((a,b)=>clubNom(a).localeCompare(clubNom(b),"ca"));
+  for(const c of clubs){
+    const g=el("optgroup",{label:clubNom(c)});
+    g.append(el("option",{value:"club:"+c,text:"Tot el club"}));
+    for(const id of clubEquips(c))g.append(el("option",{value:id,text:`${nomEq(id)} · ${abrevDiv(divDe(id))}`}));
+    sel.append(g);
+  }
+  sel.value=f;
+  const bar=el("div",{class:"filtre"},el("label",{for:"filtre-equip",text:"Equip"}),sel,
+    f?el("button",{class:"btn sec",type:"button",text:"Treu",onclick:()=>setFiltre("")}):null);
+  if(!f||!f.startsWith("club:"))return bar;
+  const c=f.slice(5), wrap=el("div",{class:"filtre-club"},el("div",{class:"note",style:"margin:0 0 6px",text:`Equips de ${clubNom(c)} per divisió:`}));
+  const row=el("div",{class:"chips"});
+  for(const x of divisions()){
+    const n=x.equips.filter(id=>S.equips[id]?.club===c).length; if(!n)continue;
+    row.append(el("button",{class:"chip",type:"button","aria-pressed":String(x.id===d.id),text:`${abrevDiv(x)} (${n})`,onclick:()=>{ponDivisio(x.id);render()}}));
+  }
+  wrap.append(row);
+  return el("div",{},bar,wrap);
+}
+
+/* ---------- calendari ---------- */
+function estatElim(f){
+  const v=S.validades[f.id];
+  if(v){const r=E.resultatEliminatoria(v);return {v,r,chip:v.tipus==="wo_equip"?el("span",{class:"chipst bad",text:`WO ${v.noPresentat==="L"?"local":"visitant"}`}):null}}
+  const a=S.actes[f.id];
+  if(a&&a.estat==="pendent")return {chip:el("span",{class:"chipst pend",text:"Acta pendent de validar"})};
+  if(a&&a.estat==="rebutjada")return {chip:el("span",{class:"chipst bad",text:"Acta retornada"})};
+  if(foraTermini(f))return {chip:el("span",{class:"chipst bad",text:"Sense resultat (+15 dies)"})};
+  return {};
+}
+function renderCalendari(box){
+  const d=currentDiv(); const cal=S.calendari[d.id]; if(!cal){box.append(el("div",{class:"state",text:"No hi ha calendari per a aquesta divisió."}));return}
+  box.append(el("p",{class:"note",text:`${d.nom} · ${d.equips.length} equips · ${d.voltes===2?"dues voltes":"una volta"}. El primer equip és el local; es juga a les seves pistes i en el seu dia i hora oficials. Toca una eliminatòria per veure'n el resultat.`}));
+  box.append(filtreBar(d));
+  const t=today(); const next=d.jornades.find(j=>parseISO(j.data)>=addDays(t,-1));
+  for(const j of d.jornades){
+    const jm=cal.eliminatories.filter(x=>x.jornada===j.num&&(filtreCoincideix(d,x.local)||filtreCoincideix(d,x.visitant)));
+    if(!jm.length)continue;
+    const card=el("article",{class:"jornada"+(next&&next.num===j.num?" next":""),id:`${d.id}-J${j.num}`});
+    const h=el("h3",{text:`Jornada ${j.num}`}); if(next&&next.num===j.num)h.append(el("span",{class:"tag",text:"Propera"}));
+    card.append(el("div",{class:"jhead"},h,el("span",{class:"when",text:"Cap de setmana: "+capSetmana(j.data)})));
+    for(const m of jm){
+      const L=S.equips[m.local],st=estatElim(m);
+      const mid=st.r?el("span",{class:"score",text:`${st.r.partitsL} - ${st.r.partitsV}`}):el("span",{class:"vs",text:"vs"});
+      const row=el("a",{class:"match",href:"#acta-"+m.id},
+        el("div",{class:"team"+(st.r?.guanya==="L"?" win":"")},nomEq(m.local),el("small",{text:"Local"})),mid,
+        el("div",{class:"team away"+(st.r?.guanya==="V"?" win":"")},nomEq(m.visitant),el("small",{text:"Visitant"})));
+      const meta=el("div",{class:"meta"});
+      if(st.v&&st.v.dataJoc)meta.append(el("span",{},"Jugada el ",el("b",{text:dataLlarga(st.v.dataJoc)})));
+      else if(L?.horari)meta.append(el("span",{},"Dia oficial: ",el("b",{text:diaOficial(m.data,L.horari)})),el("span",{text:"Pistes de "+clubNom(L.club)}));
+      if(st.chip)meta.append(st.chip);
+      row.append(meta); card.append(row);
+    }
+    box.append(card);
+  }
+  box.append(el("p",{class:"note",text:"Si els capitans pacten un altre dia, l'eliminatòria s'ha de jugar dins dels 15 dies següents a la data prevista (Reglament, apartat j)."}));
+}
+
+/* ---------- classificació ---------- */
+function renderClassificacio(box){
+  const d=currentDiv(); const cal=S.calendari[d.id]; if(!cal)return;
+  const vals={}; for(const f of cal.eliminatories)if(S.validades[f.id])vals[f.id]=S.validades[f.id];
+  const sortejos=S.sortejos[d.id]?.grups||{};
+  const files=E.classificacio(d.equips,cal.eliminatories,vals,sortejos);
+  const jugades=Object.keys(vals).length;
+  box.append(el("p",{class:"note",text:`${d.nom} · ${jugades} de ${cal.eliminatories.length} eliminatòries amb acta validada. Calculada a partir de les actes validades; no es pot editar. Toca un equip per veure'n les jornades, les estadístiques i com es desfà l'empat.`}));
+  box.append(filtreBar(d));
+  const tb=el("tbody");
+  const posVist=new Set();
+  for(const f of files){
+    const repetida=posVist.has(f.pos); posVist.add(f.pos);
+    const eqCell=el("td",{class:"eq"},el("button",{type:"button",class:"teamlink",title:"Veure el detall de l'equip","aria-haspopup":"dialog",onclick:()=>obreEquip(f.equip)},nomEq(f.equip)));
+    if(f.empat)eqCell.append(el("small",{text:f.pendentSorteig?"Empat (pendent de sorteig)":"Empat"}));
+    else if(f.criteri)eqCell.append(el("small",{text:"Desempat: "+f.criteri}));
+    tb.append(el("tr",{class:"fila"+(S.equipObert===f.equip?" sel":"")+(filtreValid(d)&&filtreCoincideix(d,f.equip)?" meu":""),"data-eq":f.equip,onclick:e=>{if(!e.target.closest("button"))obreEquip(f.equip)}},el("td",{class:"num",text:repetida?"=":String(f.pos)}),eqCell,el("td",{class:"num pts",text:f.punts}),
+      el("td",{class:"num",text:f.pj}),el("td",{class:"num",text:f.pg}),el("td",{class:"num",text:f.pe}),el("td",{class:"num",text:f.pp})));
+  }
+  box.append(el("div",{class:"card"},el("div",{class:"body tablewrap"},el("table",{},
+    el("thead",{},el("tr",{},el("th",{class:"num",text:"#"}),el("th",{text:"Equip"}),el("th",{class:"num",text:"Punts"}),el("th",{class:"num",text:"PJ"}),el("th",{class:"num",text:"PG"}),el("th",{class:"num",text:"PE"}),el("th",{class:"num",text:"PP"}))),tb)),
+    el("div",{class:"body legend",text:"Victòria 3 punts, empat 2, derrota 1, no presentat −1. Desempat (només entre els equips empatats): punts, partits guanyats, sets guanyats, jocs guanyats i sorteig."})));
+  // Sortejos pendents (només admin): només quan s'han validat tots els enfrontaments entre els empatats
+  if(S.admin){
+    const pend=[...new Set(files.filter(f=>f.pendentSorteig).map(f=>f.pendentSorteig))];
+    for(const key of pend)box.append(renderSorteig(d,key));
+  }
+}
+function renderSorteig(d,key){
+  const equips=key.split("|");
+  const obert=S.sorteigObert===key;
+  const card=el("div",{class:"card"},el("div",{class:"body"},
+    el("strong",{text:"Empat no resolt: "+equips.map(nomEq).join(", ")}),
+    el("p",{class:"note",text:"Els criteris del reglament no el desfan. Si la FCT fa el sorteig, registra'n aquí el resultat. Mentre no hi hagi sorteig, els equips es mostren amb la mateixa posició."})));
+  if(!obert){card.firstChild.append(el("button",{class:"btn sec",type:"button",text:"Registrar el resultat del sorteig",onclick:()=>{S.sorteigObert=key;render()}}));return card}
+  const sels=equips.map((_,i)=>el("select",{id:`sorteig-${i}`},...equips.map(e=>el("option",{value:e,text:nomEq(e)}))));
+  sels.forEach((s,i)=>s.value=equips[i]);
+  const errBox=el("div");
+  card.firstChild.append(...sels.map((s,i)=>el("div",{class:"field"},el("label",{for:`sorteig-${i}`,text:`${i+1}a posició`}),s)),errBox,
+    el("div",{class:"actions"},el("button",{class:"btn",type:"button",text:"Desar el sorteig",onclick:async()=>{
+      const ordre=sels.map(s=>s.value);
+      if(new Set(ordre).size!==ordre.length){errBox.replaceChildren(el("div",{class:"errlist",text:"Cada equip ha d'aparèixer una sola vegada."}));return}
+      const grups={...(S.sortejos[d.id]?.grups||{}),[key]:ordre};
+      await guardar(()=>S.db.doc("sortejos/"+d.id).set({grups}),"Sorteig desat.");S.sorteigObert=null;render();
+    }}),el("button",{class:"btn sec",type:"button",text:"Cancel·lar",onclick:()=>{S.sorteigObert=null;render()}})));
+  return card;
+}
+
+/* ---------- equips ---------- */
+const textAvis=a=>a.text.replace('capità/ana',String(a.equip||'').startsWith('F-')?'capitana':'capità');
+const avisosEquip=id=>(S.avisos?.llista||[]).filter(a=>a.equip===id);
+/* Suma del rànquing dels jugadors de la llista que en tenen; els sense rànquing (9999 o buit) no compten (D7, D27).
+   Un equip sense cap jugador amb rànquing no té suma i va l'últim. */
+const jugadorsAmbRanking=t=>t.jugadors.filter(p=>p.ranking!=null&&p.ranking!==9999);
+const sumaRanking=t=>{const l=jugadorsAmbRanking(t);return l.length?l.reduce((a,p)=>a+p.ranking,0):null};
+const perSuma=(a,b)=>{const x=sumaRanking(S.equips[a]),y=sumaRanking(S.equips[b]);return x==null?(y==null?0:1):y==null?-1:x-y};
+function renderEquips(box){
+  const d=currentDiv(); const f=filtreValid(d);
+  const nota=f.startsWith("club:")?`${clubNom(f.slice(5))}: ${clubEquips(f.slice(5)).length} equips en totes les divisions.`:f?`${nomEq(f)} · ${d.nom}.`:`${d.nom}: ${d.equips.length} equips.`;
+  box.append(el("p",{class:"note",text:`${nota} Ordenats per la suma del rànquing dels jugadors que en tenen (els sense rànquing no compten), de menor a major. Toca un equip per veure'n la llista de jugadors.`}));
+  box.append(filtreBar(d));
+  let ordenats=d.equips.filter(id=>S.equips[id]).sort(perSuma);
+  if(f.startsWith("club:"))ordenats=divisions().flatMap(x=>x.equips.filter(id=>S.equips[id]&&S.equips[id].club===f.slice(5)).sort(perSuma));
+  else if(f)ordenats=[f];
+  let divPrev=null;
+  for(const id of ordenats){
+    if(f.startsWith("club:")){const dx=divDe(id);if(dx.id!==divPrev){divPrev=dx.id;box.append(el("h3",{class:"divtit",text:dx.nom}))}}
+    const t=S.equips[id];
+    const av=S.admin?avisosEquip(id):[];
+    const sum=el("summary",{},el("span",{},el("span",{class:"nm",text:t.nom}),el("br"),el("span",{class:"info",text:`${t.horari.dia} ${t.horari.hora} h · ${t.id.startsWith("F-")?"Capitana":"Capità"}: ${t.capitans.join(" / ")} · Rànquing total: ${sumaRanking(t)??"—"} (${jugadorsAmbRanking(t).length} jug. amb rànquing)`})),
+      av.length?el("span",{class:"pill warn",text:`${av.length} avís${av.length>1?"os":""}`}):el("span",{class:"info",text:`${t.jugadors.length} jug.`}));
+    const tb=el("tbody");
+    for(const p of t.jugadors)tb.append(el("tr",{},el("td",{class:"num",text:p.ordre}),el("td",{text:`${p.nom} ${p.cognoms}`}),el("td",{text:p.llicencia}),el("td",{class:"num",text:p.ranking==null?"—":p.ranking===9999?"s/r":p.ranking})));
+    const body=el("div",{class:"body"});
+    if(av.length)body.append(el("div",{class:"warnlist"},el("strong",{text:"Dades a revisar"}),el("ul",{},...av.map(a=>el("li",{text:textAvis(a)})))));
+    body.append(el("div",{class:"tablewrap"},el("table",{},el("thead",{},el("tr",{},el("th",{class:"num",text:"#"}),el("th",{text:"Jugador/a"}),el("th",{text:"Llicència"}),el("th",{class:"num",text:"Rànquing"}))),tb)));
+    body.append(el("p",{class:"note",text:"Ordre segons la classificació nacional en tancar la inscripció. s/r = sense rànquing (9999)."}));
+    box.append(el("details",{class:"card",id:"equip-"+id},sum,body));
+  }
+}
+/* ---------- rols: capitans per equip (fase 4) ---------- */
+const capitansDe=id=>S.rols?.equips?.[id]||[];
+const meusEquips=()=>S.uid?Object.keys(S.rols?.equips||{}).filter(t=>capitansDe(t).includes(S.uid)):[];
+// Només el capità de l'equip local (o l'administrador) pot enviar o editar l'acta d'una eliminatòria (D40)
+function potEnviar(f){
+  if(S.admin)return true;
+  if(S.canWrite===false||!S.uid)return false;
+  return capitansDe(f.local).includes(S.uid);
+}
+async function resolNoms(ids){
+  if(!S.user||!ids.length)return;
+  try{
+    const ps=await S.user.profiles(ids); let canvi=false;
+    for(const id of ids){const n=(ps[id]&&ps[id].name)||""; if(S.noms[id]!==n){S.noms[id]=n;canvi=true}}
+    if(canvi&&view()==="rols")render();
+  }catch(e){}
+}
+const nomPersona=id=>S.noms[id]||"Persona sense nom visible";
+async function canviaCapitans(equip,fn,msg){
+  const eq=JSON.parse(JSON.stringify(S.rols?.equips||{}));
+  const llista=fn(eq[equip]||[]);
+  if(llista.length)eq[equip]=llista; else delete eq[equip];
+  const ok=await guardar(()=>S.db.doc("roles/capitans").set({equips:eq,actualitzatAt:new Date().toISOString(),actualitzatPer:S.uid}),null);
+  S.rolsMsg=ok?{ok:true,text:msg}:S.flash; S.flash=null; render();
+}
+/* ---------- sol·licituds de capitania (D43) ---------- */
+const equipsPossibles=()=>divisions().flatMap(d=>d.equips.map(id=>({id,div:d})));
+async function enviaSolicitud(){
+  const nom=S.capNom.trim().replace(/\s+/g," ").slice(0,80);
+  if(!nom){S.capMsg={ok:false,text:"Escriu el teu nom i cognoms perquè l'administrador et pugui reconèixer."};render();return}
+  if(!S.capSel.length){S.capMsg={ok:false,text:"Tria almenys un equip."};render();return}
+  const ok=await guardar(()=>S.db.doc("solicituds/"+S.uid).set({equips:S.capSel,nomDeclarat:nom,enviatAt:new Date().toISOString()}),null);
+  S.capMsg=ok?{ok:true,text:"Sol·licitud enviada. L'administrador l'ha d'aprovar."}:S.flash; S.flash=null; if(ok)S.capSel=[]; render();
+}
+async function retiraSolicitud(){
+  const ok=await guardar(()=>S.db.doc("solicituds/"+S.uid).delete(),null);
+  S.capMsg=ok?{ok:true,text:"Sol·licitud retirada."}:S.flash; S.flash=null; render();
+}
+function renderCapita(box){
+  box.append(el("p",{class:"note",text:"Si ets capità o capitana d'un equip, demana-ho aquí. L'administrador ho aprova i, a partir d'aquest moment, podràs enviar les actes de les eliminatòries on el teu equip és el local."}));
+  if(S.capMsg)box.append(el("div",{class:S.capMsg.ok?"oklist":"errlist",text:S.capMsg.text}));
+  const mine=meusEquips();
+  if(mine.length)box.append(el("div",{class:"oklist",text:`Ja ets ${mine.every(t=>t.startsWith("F-"))?"capitana":"capità"} de ${mine.map(nomEq).join(", ")}.`}));
+  if(S.meva){
+    box.append(el("div",{class:"card"},el("div",{class:"body"},
+      el("strong",{text:"Sol·licitud pendent d'aprovació"}),
+      el("p",{text:`Equips: ${(S.meva.equips||[]).map(nomEq).join(", ")}`}),
+      el("div",{class:"actions"},el("button",{class:"btn sec",type:"button",text:"Retira la sol·licitud",onclick:retiraSolicitud})))));
+    return;
+  }
+  const lliures=equipsPossibles().filter(x=>!mine.includes(x.id)&&!S.capSel.includes(x.id));
+  const sel=el("select",{id:"capEquip","aria-label":"Equip"},el("option",{value:"",text:"Tria un equip…"}));
+  for(const d of divisions()){const og=el("optgroup",{label:d.nom});for(const x of lliures.filter(y=>y.div.id===d.id))og.append(el("option",{value:x.id,text:nomEq(x.id)}));if(og.children.length)sel.append(og)}
+  const nom=el("input",{type:"text",id:"capNom",maxlength:"80",autocomplete:"name",placeholder:"El teu nom i cognoms","aria-label":"El teu nom i cognoms",value:S.capNom,oninput:e=>{S.capNom=e.target.value}});
+  const llista=el("ul",{class:"caps"},...S.capSel.map(id=>el("li",{},el("span",{text:nomEq(id)}),el("button",{class:"btn sec",type:"button",text:"Treu",onclick:()=>{S.capSel=S.capSel.filter(x=>x!==id);render()}}))));
+  box.append(el("div",{class:"card"},el("div",{class:"body"},
+    el("strong",{text:"Soc el capità o la capitana de…"}),
+    el("div",{class:"filtre"},sel,el("button",{class:"btn sec",type:"button",id:"capAfegeix",text:"Afegeix",onclick:()=>{if(sel.value){S.capSel=[...S.capSel,sel.value];render()}}})),
+    llista,nom,
+    el("div",{class:"actions"},el("button",{class:"btn",type:"button",id:"capEnvia",text:"Envia la sol·licitud",onclick:enviaSolicitud})))));
+}
+async function resolSolicitud(uid,aprova){
+  const s=S.sol[uid]; if(!s)return;
+  if(aprova){
+    const eq=JSON.parse(JSON.stringify(S.rols?.equips||{}));
+    for(const t of s.equips||[]){const l=eq[t]||[]; if(!l.includes(uid))eq[t]=[...l,uid]}
+    const ok=await guardar(()=>S.db.doc("roles/capitans").set({equips:eq,actualitzatAt:new Date().toISOString(),actualitzatPer:S.uid}),null);
+    if(!ok){S.rolsMsg=S.flash;S.flash=null;render();return}
+  }
+  const ok=await guardar(()=>S.db.doc("solicituds/"+uid).delete(),null);
+  S.rolsMsg=ok?{ok:true,text:aprova?"Sol·licitud aprovada.":"Sol·licitud rebutjada."}:S.flash; S.flash=null; render();
+}
+function renderSolicituds(box){
+  const ids=Object.keys(S.sol); resolNoms(ids);
+  box.append(el("h3",{class:"divtit",text:`Sol·licituds pendents (${ids.length})`}));
+  if(!ids.length){box.append(el("p",{class:"note",text:"Cap sol·licitud pendent."}));return}
+  for(const u of ids){
+    const s=S.sol[u];
+    const nomReal=S.noms[u]||"";
+    box.append(el("div",{class:"card",id:"sol-"+u},el("div",{class:"body"},
+      el("strong",{text:nomReal||"Persona sense nom visible"}),
+      el("div",{class:"note",text:`Nom que ha escrit: ${s.nomDeclarat||"—"}`}),
+      el("p",{text:`Equips: ${(s.equips||[]).map(nomEq).join(", ")}`}),
+      el("div",{class:"note",text:(s.equips||[]).map(t=>`${nomEq(t)}: ${(S.equips[t]?.capitans||[]).join(" / ")||"—"} (FCT)`).join(" · ")}),
+      el("div",{class:"actions"},
+        el("button",{class:"btn",type:"button",text:"Aprova","aria-label":`Aprova ${nomReal||s.nomDeclarat||"la sol·licitud"}`,onclick:()=>resolSolicitud(u,true)}),
+        el("button",{class:"btn sec",type:"button",text:"Rebutja",onclick:()=>resolSolicitud(u,false)})))));
+  }
+}
+function renderRols(box){
+  const ids=[...new Set(Object.values(S.rols?.equips||{}).flat())]; resolNoms(ids);
+  box.append(el("p",{class:"note",text:"Cada capità assignat pot enviar l'acta de les eliminatòries on el seu equip és el local (i editar-la mentre estigui pendent). Les actes continuen sense comptar fins que les valides. Perquè una persona pugui enviar actes ha d'estar convidada a la pàgina amb permís de col·laborador/a (menú de compartir). Quan obre la pàgina, demana la capitania a la pestanya «Soc capità/ana» i apareix aquí per aprovar-la. La cerca de sota només troba persones del teu mateix grup de Claude."}));
+  if(S.rolsMsg)box.append(el("div",{class:S.rolsMsg.ok?"oklist":"errlist",text:S.rolsMsg.text}));
+  renderSolicituds(box);
+  if(!S.user)box.append(el("div",{class:"warnlist",text:"No es pot cercar persones des d'aquesta vista."}));
+  for(const d of divisions()){
+    box.append(el("h3",{class:"divtit",text:d.nom}));
+    for(const id of d.equips){
+      const t=S.equips[id]; if(!t)continue;
+      const caps=capitansDe(id);
+      const llista=el("ul",{class:"caps"},...(caps.length?caps.map(u=>el("li",{},el("span",{text:nomPersona(u)}),el("button",{class:"btn sec",type:"button",text:"Treu","aria-label":`Treu ${nomPersona(u)} com a capità de ${t.nom}`,onclick:()=>canviaCapitans(id,l=>l.filter(x=>x!==u),`${nomPersona(u)} ja no és capità de ${t.nom}.`)}))):[el("li",{class:"note",text:"Cap capità assignat."})]));
+      const res=el("ul",{class:"cerca"});
+      const cerca=el("input",{type:"search",placeholder:"Cerca una persona pel nom","aria-label":`Afegeix capità a ${t.nom}`,autocomplete:"off",
+        oninput:async e=>{
+          const q=e.target.value.trim(); res.replaceChildren(); if(!q||!S.user)return;
+          const hits=await S.user.search(q);
+          if(e.target.value.trim()!==q)return;
+          if(!hits.length){res.append(el("li",{class:"note",text:"Cap resultat. La persona ha d'estar convidada a la pàgina."}));return}
+          for(const h of hits){S.noms[h.id]=h.name||S.noms[h.id]||"";
+            res.append(el("li",{},el("button",{class:"btn sec",type:"button",text:h.name||"Persona sense nom",disabled:caps.includes(h.id),
+              onclick:()=>canviaCapitans(id,l=>l.includes(h.id)?l:[...l,h.id],`${h.name||"La persona"} és ara capità de ${t.nom}.`)})));}
+        }});
+      box.append(el("div",{class:"card"},el("div",{class:"body"},
+        el("strong",{text:t.nom}),
+        el("div",{class:"note",text:`Capità/ana segons l'FCT: ${t.capitans.join(" / ")||"—"}`}),
+        llista,cerca,res)));
+    }
+  }
+}
+function renderAvisos(box){
+  const ll=S.avisos?.llista||[];
+  box.append(el("p",{class:"note",text:`${ll.length} avisos detectats en carregar les fitxes d'equip i els horaris de la FCT. Les dades s'han carregat tal com venien; corregeix-les quan la FCT ho confirmi.`}));
+  const byEq={}; for(const a of ll)(byEq[a.equip]=byEq[a.equip]||[]).push(a);
+  for(const[id,as]of Object.entries(byEq).sort()){
+    const t=S.equips[id];
+    box.append(el("div",{class:"card"},el("div",{class:"body"},el("strong",{text:(t?.nom||id)+(t?` · ${t.sexe==="M"?"Masculí":"Femení"} ${t.divisio}a`:"")}),el("ul",{},...as.map(a=>el("li",{text:textAvis(a)}))))));
+  }
+}
+
+/* ---------- finestra de detall d'equip ---------- */
+const dlg=$("#dlgEquip");
+const ORD=n=>n===1?"1r":n===2?"2n":n===3?"3r":n===4?"4t":n+"è";
+function marcaFila(){document.querySelectorAll('tr.fila').forEach(tr=>tr.classList.toggle('sel',tr.dataset.eq===S.equipObert))}
+function obreEquip(id){S.equipObert=id;marcaFila();omplirFinestra();if(!dlg.open)dlg.showModal()}
+function tancaFinestra(){if(dlg.open)dlg.close()}
+dlg.addEventListener("close",()=>{S.equipObert=null;marcaFila()});
+dlg.addEventListener("click",e=>{if(e.target===dlg)dlg.close()});
+function actualitzaFinestra(){
+  if(!dlg.open)return;
+  if(view()!=="classificacio"||!S.equipObert||!S.equips[S.equipObert]){dlg.close();return}
+  const sc=dlg.scrollTop; omplirFinestra(); dlg.scrollTop=sc;
+}
+function omplirFinestra(){
+  const id=S.equipObert, t=S.equips[id]; if(!t){return}
+  const d=divisions().find(x=>x.equips.includes(id)); const cal=d&&S.calendari[d.id]; if(!d||!cal)return;
+  const vals={}; for(const f of cal.eliminatories)if(S.validades[f.id])vals[f.id]=S.validades[f.id];
+  const sortejos=S.sortejos[d.id]?.grups||{};
+  const fila=E.classificacio(d.equips,cal.eliminatories,vals,sortejos).find(r=>r.equip===id);
+  const det=E.detallEquip(id,d.equips,cal.eliminatories,vals);
+  const r=det.resum;
+  const head=el("div",{class:"dhead"},el("div",{},el("h2",{id:"dlgTitol",text:nomEq(id)}),
+    el("p",{text:`${d.nom} · ${fila?(fila.empat?`${ORD(fila.pos)} (empat)`:ORD(fila.pos)):""} · ${r.pj} de ${det.jornades.length} jornades jugades`})),
+    el("button",{class:"dclose",type:"button",text:"Tanca",onclick:tancaFinestra}));
+  const body=el("div",{class:"dbody"});
+  // estadístiques
+  const stat=(v,l)=>el("div",{class:"stat"},el("b",{text:String(v)}),el("span",{text:l}));
+  body.append(el("h3",{text:"Estadístiques"}),el("div",{class:"stats"},
+    stat(r.punts,"Punts"),stat(`${r.pg}-${r.pe}-${r.pp}`,"G - E - P"),stat(r.pj,"Jornades"),
+    stat(`${r.partitsG}-${r.partitsP}`,"Partits"),stat(`${r.setsG}-${r.setsP}`,"Sets"),stat(`${r.jocsG}-${r.jocsP}`,"Jocs")));
+  body.append(el("p",{class:"note",style:"margin-top:8px",text:"G - E - P: jornades guanyades, empatades i perdudes. Partits, sets i jocs: a favor - en contra. El match tie-break compta com a set però no com a joc. Un partit guanyat per incompareixença compta 6-0 6-0."}));
+  // jornades
+  body.append(el("h3",{text:"Jornades"}));
+  for(const j of det.jornades){
+    const rival=nomEq(j.rival), cap=capSetmana(j.data);
+    if(!j.jugada){
+      body.append(el("div",{class:"jrow pend"},el("div",{class:"l1"},el("span",{class:"rv",text:`J${j.jornada} · ${j.local?"Local":"Visitant"} · ${rival}`}),el("span",{text:"Per jugar"})),
+        el("div",{class:"l2"},el("span",{text:"Cap de setmana: "+cap}),el("a",{href:"#acta-"+j.id,text:"Obrir l'eliminatòria",onclick:tancaFinestra}))));
+      continue;
+    }
+    const lletra=j.resultat==="G"?"Guanyada":j.resultat==="E"?"Empat":"Perduda";
+    const chips=[el("span",{class:"chipst "+(j.resultat==="P"?"bad":j.resultat==="G"?"ok":"pend"),text:lletra}),
+      j.wo?el("span",{class:"chipst bad",text:j.noPresentat?"WO: no presentat":"WO del rival"}):null];
+    body.append(el("div",{class:"jrow"},el("div",{class:"l1"},el("span",{class:"rv",text:`J${j.jornada} · ${j.local?"Local":"Visitant"} · ${rival}`}),el("span",{class:"sc",text:`${j.partitsG} - ${j.partitsP}`})),
+      el("div",{class:"l2"},...chips,el("span",{text:`${j.punts>0?"+":""}${j.punts} punts`}),el("span",{text:`Sets ${j.setsG}-${j.setsP}`}),el("span",{text:`Jocs ${j.jocsG}-${j.jocsP}`}),
+        j.dataJoc?el("span",{text:"Jugada el "+dataLlarga(j.dataJoc)}):null,el("a",{href:"#acta-"+j.id,text:"Veure l'acta",onclick:tancaFinestra}))));
+  }
+  // empat
+  body.append(el("h3",{text:"Com es desfà l'empat"}));
+  const ex=E.explicacioEmpat(id,d.equips,cal.eliminatories,vals,sortejos);
+  if(!ex.passos.length){
+    body.append(el("p",{class:"note",text:ex.punts===0&&r.pj===0?"Encara no hi ha cap eliminatòria validada.":`Cap altre equip de la divisió té ${ex.punts} punts: no cal desempat.`}));
+  }else{
+    body.append(el("p",{class:"note",text:"Reglament, apartat g: entre els equips empatats només es compten els enfrontaments entre ells. Criteris, per ordre: punts, partits guanyats, sets guanyats, jocs guanyats i sorteig. Si en queden més de dos empatats, es repeteix el procediment només amb els que segueixen empatats."}));
+    ex.passos.forEach((p,i)=>{
+      const tit=i===0?`Empat a ${ex.punts} punts entre ${p.equips.map(nomEq).join(", ")}`:`Segueixen empatats: ${p.equips.map(nomEq).join(", ")}`;
+      const col=c=>p.criteri===c?"crit":"";
+      const trs=[...p.equips].sort((a,b)=>p.stats[b].punts-p.stats[a].punts||p.stats[b].partitsG-p.stats[a].partitsG||p.stats[b].setsG-p.stats[a].setsG||p.stats[b].jocsG-p.stats[a].jocsG).map(e=>{
+        const x=p.stats[e];
+        return el("tr",{class:e===id?"me":""},el("td",{class:"eq",text:nomEq(e)}),
+          el("td",{class:"num "+col("punts"),text:x.punts}),el("td",{class:"num "+col("partits guanyats"),text:x.partitsG}),el("td",{class:"num "+col("sets guanyats"),text:x.setsG}),el("td",{class:"num "+col("jocs guanyats"),text:x.jocsG}))});
+      const taula=el("div",{class:"tablewrap"},el("table",{},el("thead",{},el("tr",{},el("th",{text:"Equip"}),el("th",{class:"num "+col("punts"),text:"Punts"}),el("th",{class:"num "+col("partits guanyats"),text:"Partits"}),el("th",{class:"num "+col("sets guanyats"),text:"Sets"}),el("th",{class:"num "+col("jocs guanyats"),text:"Jocs"}))),el("tbody",{},...trs)));
+      const ordre=p.blocs?p.blocs.map(b=>b.map(nomEq).join(" = ")).join("  ›  "):"";
+      let concl;
+      if(p.criteri==="sorteig")concl=`Es desfà per sorteig. Ordre registrat: ${p.sorteig.map(nomEq).join("  ›  ")}.`;
+      else if(p.criteri)concl=`Es separa pels ${p.criteri} dels enfrontaments directes: ${ordre}.`+(p.blocs.some(b=>b.length>1)?" Els equips que segueixen empatats passen a la ronda següent.":"");
+      else if(p.pendents.length)concl="Cap criteri els separa de moment.";
+      else concl="Cap criteri els separa: l'empat només es pot desfer amb un sorteig, que registra l'administrador.";
+      const kids=[el("p",{},el("strong",{text:tit})),el("p",{class:"note",text:"Només els enfrontaments directes entre aquests equips; partits, sets i jocs guanyats."}),taula,el("p",{class:"res",text:concl})];
+      if(p.pendents.length)kids.push(el("p",{class:"note",style:"margin-top:6px",text:`Encara falten enfrontaments directes entre aquests equips: ${p.pendents.map(q=>nomEq(q.local)+" – "+nomEq(q.visitant)).join("; ")}. Mentre no es validin, l'empat és provisional i pot canviar.`}));
+      body.append(el("div",{class:"step"},...kids));
+    });
+  }
+  dlg.replaceChildren(head,body);
+}
+
+/* ---------- validació (admin) ---------- */
+function renderValidacio(box){
+  const pend=pendents().sort((a,b)=>(a.enviadaAt||"").localeCompare(b.enviadaAt||""));
+  box.append(el("h2",{text:`Actes pendents (${pend.length})`}));
+  box.append(el("p",{class:"note",text:"Una acta no compta a la classificació fins que la valides. Pots validar-la, corregir-la o retornar-la a l'equip amb el motiu."}));
+  if(!pend.length)box.append(el("div",{class:"state",text:"No hi ha actes pendents de validar."}));
+  for(const a of pend){
+    const f=elim(a.eliminatoria); if(!f)continue;
+    const chk=E.validarActa(a,rosters(f));
+    const r=E.resultatEliminatoria(a);
+    box.append(el("a",{class:"card match",href:"#acta-"+f.id,style:"display:grid"},
+      el("div",{class:"team"},nomEq(f.local),el("small",{text:`${f.divisio} · Jornada ${f.jornada}`})),
+      el("span",{class:"score",text:`${r.partitsL} - ${r.partitsV}`}),
+      el("div",{class:"team away"},nomEq(f.visitant),el("small",{text:a.dataJoc?dataLlarga(a.dataJoc):""})),
+      el("div",{class:"meta"},chk.errors.length?el("span",{class:"chipst bad",text:`${chk.errors.length} errors`}):el("span",{class:"chipst ok",text:"Sense errors"}),
+        chk.avisos.length?el("span",{class:"chipst pend",text:`${chk.avisos.length} avisos`}):null,a.arxiu?el("span",{text:"Amb acta escanejada"}):null)));
+  }
+  const tard=totesElims().filter(f=>foraTermini(f)&&!S.validades[f.id]&&!(S.actes[f.id]&&S.actes[f.id].estat==="pendent"));
+  box.append(el("h2",{text:`Sense resultat després de 15 dies (${tard.length})`,style:"margin-top:24px"}));
+  box.append(el("p",{class:"note",text:"Passats 15 dies sense jugar, és WO de l'equip que no va tenir disponibilitat (decisió D12). Obre l'eliminatòria per registrar-lo."}));
+  for(const f of tard)box.append(el("a",{class:"card match",href:"#acta-"+f.id,style:"display:grid"},
+    el("div",{class:"team"},nomEq(f.local),el("small",{text:`${f.divisio} · Jornada ${f.jornada}`})),el("span",{class:"vs",text:"vs"}),
+    el("div",{class:"team away"},nomEq(f.visitant),el("small",{text:"Previst: "+dataLlarga(f.data)}))));
+}
+
+/* ---------- acta ---------- */
+function rosters(f){return {L:S.equips[f.local]?.jugadors||[],V:S.equips[f.visitant]?.jugadors||[]}}
+function actaBuida(f){
+  return {eliminatoria:f.id,divisio:f.divisio,tipus:"jugada",dataJoc:"",
+    partits:E.PARTITS.map(()=>({estat:"jugat",L:[null,null],V:[null,null],sets:[["",""],["",""],["",""]]})),arxiu:null};
+}
+function clonaActa(a){return JSON.parse(JSON.stringify(a))}
+// Normalitza l'esborrany del formulari al format de l'acta (números, sets buits fora)
+function normalitza(d){
+  const a={eliminatoria:d.eliminatoria,divisio:d.divisio,tipus:"jugada",dataJoc:d.dataJoc||"",arxiu:d.arxiu||null,
+    partits:d.partits.map(p=>{
+      const q={estat:p.estat};
+      for(const c of ["L","V"]){const par=(p[c]||[]).map(x=>x===""||x==null?null:Number(x));q[c]=(p.estat==="wo_"+c&&par.every(x=>x==null))?null:par}
+      if(!p.estat.startsWith("wo_"))q.sets=(p.sets||[]).filter((s,i)=>i<2||(s[0]!==""&&s[0]!=null)||(s[1]!==""&&s[1]!=null)).map(s=>[s[0]===""?NaN:Number(s[0]),s[1]===""?NaN:Number(s[1])]);
+      return q})};
+  return a;
+}
+function renderActaView(box){
+  const id=location.hash.slice(6); const f=elim(id);
+  box.append(el("a",{class:"back",href:"#calendari",text:"← Tornar al calendari"}));
+  if(!f){box.append(el("div",{class:"state",text:"No s'ha trobat aquesta eliminatòria."}));return}
+  const L=S.equips[f.local];
+  box.append(el("h2",{text:`${nomEq(f.local)} – ${nomEq(f.visitant)}`}));
+  box.append(el("p",{class:"note",text:`${divisions().find(d=>d.id===f.divisio)?.nom} · Jornada ${f.jornada} · Cap de setmana ${capSetmana(f.data)} · Pistes de ${clubNom(L?.club)}`}));
+  if(S.flash){box.append(el("div",{class:S.flash.ok?"oklist":"errlist",text:S.flash.text}));}
+  const v=S.validades[f.id], a=S.actes[f.id];
+  if(S.draft&&S.draft.eliminatoria===f.id){renderForm(box,f);return}
+  if(v){
+    box.append(el("div",{class:"oklist",text:v.tipus==="wo_equip"?`WO d'equip registrat per l'administrador (${v.motiu==="fora_termini"?"més de 15 dies sense jugar":"incompareixença"}).`:"Acta validada: compta a la classificació."}));
+    renderActaRO(box,f,v);
+    if(S.admin)box.append(el("div",{class:"actions"},
+      v.tipus!=="wo_equip"?el("button",{class:"btn sec",type:"button",text:"Corregir l'acta",onclick:()=>{S.draft={...clonaActa(v),mode:"correccio"};omplirDraft(S.draft);render()}}):null,
+      el("button",{class:"btn danger",type:"button",text:"Anul·lar la validació",onclick:()=>confirmar(box,"L'eliminatòria deixarà de comptar a la classificació fins que es torni a validar.",async()=>{
+        await guardar(()=>S.db.doc("validades/"+f.id).delete(),"Validació anul·lada. La classificació s'ha recalculat.");
+        if(a)await guardar(()=>S.db.doc("actes/"+f.id).update({estat:"pendent"}),null);
+      })})));
+    return;
+  }
+  if(a){
+    if(a.estat==="rebutjada")box.append(el("div",{class:"errlist"},el("strong",{text:"Acta retornada per l'administrador: "}),a.motiu||""));
+    else box.append(el("div",{class:"warnlist",text:"Acta enviada, pendent de validar per l'administrador. Encara no compta a la classificació."}));
+    const chk=E.validarActa(a,rosters(f));
+    if(chk.errors.length)box.append(el("div",{class:"errlist"},el("strong",{text:"Errors"}),el("ul",{},...chk.errors.map(e=>el("li",{text:e})))));
+    if(chk.avisos.length)box.append(el("div",{class:"warnlist"},el("strong",{text:"Avisos"}),el("ul",{},...chk.avisos.map(e=>el("li",{text:e})))));
+    renderActaRO(box,f,a);
+    const acts=el("div",{class:"actions"});
+    if(potEnviar(f))acts.append(el("button",{class:"btn sec",type:"button",text:"Editar l'acta",onclick:()=>{S.draft={...clonaActa(a),mode:"enviament"};omplirDraft(S.draft);render()}}));
+    if(S.admin&&a.estat==="pendent"){
+      acts.append(el("button",{class:"btn",type:"button",text:"Validar",disabled:chk.errors.length>0,onclick:()=>validar(f,a)}));
+      acts.append(el("button",{class:"btn danger",type:"button",text:"Retornar a l'equip",onclick:()=>retornar(box,f)}));
+    }
+    box.append(acts);
+    return;
+  }
+  box.append(el("div",{class:"state",text:"Encara no s'ha introduït l'acta d'aquesta eliminatòria."}));
+  const acts=el("div",{class:"actions"});
+  if(!window.LCTP_PUBLIC&&!potEnviar(f)&&!S.admin)box.append(el("p",{class:"note",text:`L'acta la envia el capità o la capitana de l'equip local (${nomEq(f.local)}).`}));
+  if(potEnviar(f))acts.append(el("button",{class:"btn",type:"button",text:"Introduir l'acta",onclick:()=>{S.draft={...actaBuida(f),mode:"enviament"};render()}}));
+  if(S.admin)acts.append(el("button",{class:"btn sec",type:"button",text:"Registrar WO d'equip",onclick:()=>renderWO(box,f)}));
+  box.append(acts);
+}
+function omplirDraft(d){ // deixa l'esborrany amb 3 files de sets i parelles de 2
+  d.partits=d.partits.map(p=>({estat:p.estat,L:p.L||[null,null],V:p.V||[null,null],
+    sets:[0,1,2].map(i=>p.sets&&p.sets[i]?p.sets[i].map(x=>Number.isFinite(x)?x:""):["",""])}));
+}
+function renderActaRO(box,f,a){
+  if(a.tipus==="wo_equip"){
+    const r=E.resultatEliminatoria(a);
+    box.append(el("div",{class:"result",text:`${r.partitsL} - ${r.partitsV}`}));
+    box.append(el("p",{class:"note",text:`No presentat: ${nomEq(a.noPresentat==="L"?f.local:f.visitant)}. Tots els partits compten 6-0 6-0. Punts: ${nomEq(f.local)} ${r.puntsL}, ${nomEq(f.visitant)} ${r.puntsV}.`}));
+    return;
+  }
+  const r=E.resultatEliminatoria(a);
+  box.append(el("div",{class:"result",text:`${r.partitsL} - ${r.partitsV}`}));
+  box.append(el("p",{class:"note",text:`${r.guanya?`Guanya ${nomEq(r.guanya==="L"?f.local:f.visitant)}`:"Empat"} · Punts: ${nomEq(f.local)} ${r.puntsL}, ${nomEq(f.visitant)} ${r.puntsV}${a.dataJoc?" · Jugada el "+dataLlarga(a.dataJoc):""}`}));
+  if(a.arxiu?.url)box.append(el("p",{},el("a",{href:a.arxiu.url,target:"_blank",rel:"noopener",text:"Veure l'acta escanejada"+(a.arxiu.nom?` (${a.arxiu.nom})`:"")})));
+  const card=el("div",{class:"card"},el("div",{class:"body"}));
+  a.partits.forEach((p,i)=>{
+    const def=E.PARTITS[i];
+    if(i%2===0)card.firstChild.append(el("div",{class:"torn"},el("h3",{text:`Torn ${def.torn}`})));
+    let txt;
+    if(p.estat==="wo_L"||p.estat==="wo_V")txt=`WO ${p.estat==="wo_L"?"local":"visitant"}`;
+    else txt=(p.sets||[]).map(s=>s.join("-")).join(" ")+(p.estat.startsWith("retirada")?` (ret. ${p.estat.endsWith("L")?"local":"visitant"})`:"");
+    const g=E.resultatPartit(p).guanya;
+    card.firstChild.append(el("div",{class:"ro-partit"},
+      el("div",{class:g==="L"?"w":""},el("small",{text:E.etiqueta(def.L)+" · "}),parella(f.local,p.L)),
+      el("div",{class:"s",text:txt}),
+      el("div",{class:"r"+(g==="V"?" w":"")},parella(f.visitant,p.V),el("small",{text:" · "+E.etiqueta(def.V)}))));
+  });
+  box.append(card);
+}
+const ERR_LECTURA={not_granted:"No has permès que aquesta pàgina faci servir Claude.",sampling_disabled:"Claude no està disponible per al teu compte.",rate_limited:"Massa peticions o límit d'ús assolit. Prova-ho més tard.",
+  image_rejected:"La imatge no es pot llegir (format o mida). Prova amb una altra foto.",images_unavailable:"Aquesta vista no pot enviar imatges.",invalid_json:"No s'ha pogut interpretar la lectura. Prova amb una foto més nítida i dreta.",cancelled:""};
+function promptLectura(f){
+  const R=rosters(f), llista=c=>R[c].map(j=>`${j.ordre}. ${j.nom} ${j.cognoms}`).join("\n");
+  return `Aquesta imatge és l'acta d'una eliminatòria de la Lliga Catalana de Tennis Platja (equips de 3 o 4 jugadors, 6 partits de dobles en 3 torns de 2 partits).
+Equip A = LOCAL = ${nomEq(f.local)}. Equip B = VISITANT = ${nomEq(f.visitant)}.
+Llista de jugadors del local (ordre. nom):
+${llista("L")}
+Llista de jugadors del visitant (ordre. nom):
+${llista("V")}
+
+Llegeix l'acta i respon NOMÉS amb un JSON d'aquesta forma:
+{"dataJoc":"AAAA-MM-DD","partits":[{"estat":"jugat","L":[ordre,ordre],"V":[ordre,ordre],"sets":[[jocsLocal,jocsVisitant],[jocsLocal,jocsVisitant],[puntsLocal,puntsVisitant]]}, ... 6 partits en l'ordre de l'acta ...],"dubtes":["text curt"]}
+Regles:
+- "L" i "V" són els números d'ordre (de les llistes d'amunt) dels dos jugadors de cada parella; identifica'ls pel nom. Si un nom no coincideix amb la llista o no es llegeix, posa null.
+- "sets": el set 1, el set 2 i, només si van 1-1, el match tie-break (punts, no jocs). Sempre [local, visitant]. Si hi ha només 2 sets, posa només 2 parelles.
+- "estat": "jugat"; "retirada_L" o "retirada_V" si es retira la parella local o visitant; "wo_L" o "wo_V" si la parella local o visitant no es presenta o no es disputa (en aquest cas sense sets).
+- La data en format AAAA-MM-DD (temporada 2026-27: els anys possibles són 2026 i 2027).
+- No t'inventis res. Si una xifra, un nom o la data no es llegeixen amb seguretat, deixa-ho null o buit i afegeix una frase a "dubtes" que digui el partit i què falta. Afegeix també a "dubtes" qualsevol cosa estranya (esmenes, ratllades, resultats que no quadren).`;
+}
+async function llegeixActa(f,d,info,btn){
+  if(!d.fitxer||!S.sample||S.llegint)return;
+  S.llegint=true; btn.disabled=true; info.textContent="Llegint l'acta… pot trigar d'un a dos minuts. No tanquis la pàgina.";
+  try{
+    const raw=await S.sample.json(promptLectura(f),{images:[d.fitxer],modelTier:"complex",cache:false});
+    const r=E.sanejaLectura(raw,rosters(f));
+    if(r.dataJoc)d.dataJoc=r.dataJoc;
+    d.partits=r.partits; d.lectura={dubtes:r.dubtes};
+    S.llegint=false; S.editing=false; render();
+  }catch(e){
+    S.llegint=false; btn.disabled=false;
+    info.textContent=(e&&e.code in ERR_LECTURA?ERR_LECTURA[e.code]:"No s'ha pogut llegir l'acta. Torna-ho a provar o omple-la a mà.");
+  }
+}
+function renderForm(box,f){
+  const d=S.draft; const R=rosters(f);
+  S.editing=true;
+  const titol=d.mode==="correccio"?"Correcció de l'acta validada":"Acta de resultats";
+  box.append(el("h2",{text:titol,style:"margin-top:8px"}));
+  box.append(el("p",{class:"note",text:"Mateixes dades que l'acta oficial: parelles de cada torn i resultat de cada partit. Equip A = local, equip B = visitant."}));
+  if(d.lectura)box.append(el("div",{class:"warnlist",id:"lectura-av"},el("strong",{text:"Acta llegida automàticament: comprova-ho tot amb la foto abans d'enviar-la."}),
+    d.lectura.dubtes.length?el("ul",{},...d.lectura.dubtes.map(t=>el("li",{text:t}))):el("p",{class:"note",text:"No ha marcat cap dubte, però la lectura pot tenir errors."})));
+  const form=el("form",{novalidate:true,onsubmit:e=>e.preventDefault()});
+  form.append(el("div",{class:"field"},el("label",{for:"f-data",text:"Data de joc"}),
+    el("input",{type:"date",id:"f-data",value:d.dataJoc||"",max:isoToday(),required:true,oninput:e=>{d.dataJoc=e.target.value;actualitzaResum()}})));
+  // arxiu escanejat
+  const arxiuInfo=el("span",{class:"note",text:d.arxiu?`Adjuntat: ${d.arxiu.nom||"acta"}`:"Opcional: PDF o foto de l'acta en paper (màx. 20 MB)."});
+  const llegeixBtn=el("button",{class:"btn sec",type:"button",id:"b-llegeix",text:"Omple el formulari des de la foto",disabled:true,onclick:()=>llegeixActa(f,d,llegeixInfo,llegeixBtn)});
+  const llegeixInfo=el("span",{class:"note",id:"llegeix-info"});
+  const triaLectura=file=>{
+    d.fitxer=file;
+    const img=!!file&&/^image\//.test(file.type||"");
+    llegeixBtn.disabled=!img||S.llegint;
+    llegeixInfo.textContent=!file?"":img?"La lectura automàtica omple el formulari; després l'has de revisar.":"Per llegir-la automàticament cal una foto o una captura (JPG o PNG); un PDF s'adjunta però no es llegeix.";
+  };
+  const fileIn=el("input",{type:"file",id:"f-arxiu",accept:"application/pdf,image/*",onchange:async e=>{
+    const file=e.target.files[0]; if(!file)return;
+    triaLectura(file);
+    if(!S.assets){arxiuInfo.textContent="No tens permís per pujar arxius en aquesta pàgina.";return}
+    arxiuInfo.textContent="Pujant…";
+    try{const up=await S.assets.upload(file);d.arxiu={id:up.id,url:up.url,nom:file.name};arxiuInfo.textContent=`Adjuntat: ${file.name}`}
+    catch(err){arxiuInfo.textContent="No s'ha pogut pujar l'arxiu. Torna-ho a provar."}
+  }});
+  form.append(el("div",{class:"field"},el("label",{for:"f-arxiu",text:"Acta escanejada"}),fileIn,el("br"),arxiuInfo));
+  if(S.sample&&S.imgOk){form.append(el("div",{class:"field"},llegeixBtn,el("br"),llegeixInfo));if(d.fitxer)triaLectura(d.fitxer)}
+  const opts=(eq)=>[el("option",{value:"",text:"— Jugador/a —"}),...(S.equips[eq]?.jugadors||[]).map(j=>el("option",{value:String(j.ordre),text:`${j.ordre}. ${j.nom} ${j.cognoms}`}))];
+  d.partits.forEach((p,i)=>{
+    const def=E.PARTITS[i];
+    if(i%2===0)form.append(el("div",{class:"torn"},el("h3",{text:`Torn ${def.torn}`})));
+    const box2=el("div",{class:"partit",id:`p${i}`});
+    const estat=el("select",{id:`p${i}-estat`,onchange:e=>{p.estat=e.target.value;setsBox.hidden=p.estat.startsWith("wo_");actualitzaResum()}},
+      ...[["jugat","Jugat"],["retirada_L","Retirada de la parella local"],["retirada_V","Retirada de la parella visitant"],["wo_L","Local no present / no disputat (WO)"],["wo_V","Visitant no present / no disputat (WO)"]].map(([v,t])=>el("option",{value:v,text:t})));
+    estat.value=p.estat;
+    box2.append(el("div",{class:"ph"},el("span",{text:`Partit ${i+1}: Local ${E.etiqueta(def.L)} vs Visitant ${E.etiqueta(def.V)}`})));
+    box2.append(el("div",{class:"field"},el("label",{for:`p${i}-estat`,text:"Com va acabar"}),estat));
+    const sides=el("div",{class:"sides"});
+    for(const c of ["L","V"]){
+      const eq=c==="L"?f.local:f.visitant;
+      const side=el("div",{class:"side"},el("label",{text:`${nomEq(eq)} (${E.etiqueta(def[c])})`}));
+      [0,1].forEach(k=>{const s=el("select",{id:`p${i}-${c}${k}`,"aria-label":`Partit ${i+1}, ${c==="L"?"local":"visitant"}, jugador ${k+1}`,onchange:e=>{p[c][k]=e.target.value===""?null:Number(e.target.value);actualitzaResum()}},...opts(eq));s.value=p[c][k]==null?"":String(p[c][k]);side.append(s)});
+      sides.append(side);
+    }
+    box2.append(sides);
+    const setsBox=el("div",{class:"sets"},el("span"),el("span",{class:"h",text:"Set 1"}),el("span",{class:"h",text:"Set 2"}),el("span",{class:"h",text:"MTB"}));
+    for(const[c,k]of[["L",0],["V",1]]){
+      setsBox.append(el("span",{class:"note",style:"margin:0",text:c==="L"?"Local":"Visitant"}));
+      [0,1,2].forEach(si=>setsBox.append(el("input",{type:"number",inputmode:"numeric",min:"0",max:"30",id:`p${i}-s${si}${c}`,"aria-label":`Partit ${i+1}, ${si<2?"set "+(si+1):"match tie-break"}, ${c==="L"?"local":"visitant"}`,value:p.sets[si][k],
+        oninput:e=>{p.sets[si][k]=e.target.value;actualitzaResum()}})));
+    }
+    setsBox.hidden=p.estat.startsWith("wo_");
+    box2.append(setsBox);
+    form.append(box2);
+  });
+  const resum=el("div",{id:"resum"});
+  form.append(resum);
+  const acts=el("div",{class:"actions"});
+  if(d.mode==="correccio")acts.append(el("button",{class:"btn",type:"button",id:"b-desa",text:"Desar la correcció",onclick:()=>desar(f,"correccio")}));
+  else{
+    acts.append(el("button",{class:"btn",type:"button",id:"b-desa",text:S.admin?"Enviar (queda pendent)":"Enviar l'acta",onclick:()=>desar(f,"enviament")}));
+    if(S.admin)acts.append(el("button",{class:"btn",type:"button",id:"b-valida",text:"Desar i validar",onclick:()=>desar(f,"valida")}));
+  }
+  acts.append(el("button",{class:"btn sec",type:"button",text:"Cancel·lar",onclick:()=>{S.draft=null;S.editing=false;S.flash=null;render()}}));
+  form.append(acts);
+  box.append(form);
+  actualitzaResum();
+}
+function actualitzaResum(){
+  const d=S.draft, box=$("#resum"); if(!d||!box)return;
+  const f=elim(d.eliminatoria); const a=normalitza(d);
+  const chk=E.validarActa(a,rosters(f));
+  box.replaceChildren();
+  // resultat només amb partits que tenen guanyador clar
+  let ok=true; try{a.partits.forEach(p=>{if(!p.estat.startsWith("wo_")&&(p.sets||[]).some(s=>!Number.isFinite(s[0])||!Number.isFinite(s[1])))ok=false})}catch(e){ok=false}
+  if(ok){const r=E.resultatEliminatoria(a);box.append(el("div",{class:"result",text:`${nomEq(f.local)} ${r.partitsL} - ${r.partitsV} ${nomEq(f.visitant)}`}),
+    el("p",{class:"note",style:"text-align:center",text:r.guanya?`Guanya ${nomEq(r.guanya==="L"?f.local:f.visitant)}`:"Empat"}))}
+  if(chk.errors.length)box.append(el("div",{class:"errlist"},el("strong",{text:`Cal corregir (${chk.errors.length})`}),el("ul",{},...chk.errors.map(e=>el("li",{text:e})))));
+  if(chk.avisos.length)box.append(el("div",{class:"warnlist"},el("strong",{text:"Avisos"}),el("ul",{},...chk.avisos.map(e=>el("li",{text:e})))));
+  if(!chk.errors.length)box.append(el("div",{class:"oklist",text:"L'acta és completa i els resultats són vàlids."}));
+  ["b-desa","b-valida"].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=chk.errors.length>0||S.busy});
+}
+
+/* ---------- escriptures ---------- */
+async function guardar(fn,okText){
+  S.busy=true;
+  try{await fn();if(okText)S.flash={ok:true,text:okText};return true}
+  catch(e){
+    const msg=e&&e.code==="invalid_argument"?"No tens permís per fer aquesta acció.":e&&e.code==="quota_exceeded"?"La base de dades és plena. Avisa l'administrador.":"No s'ha pogut desar. Torna-ho a provar.";
+    S.flash={ok:false,text:msg};return false}
+  finally{S.busy=false}
+}
+async function desar(f,mode){
+  if(mode!=="correccio"&&!potEnviar(f)){S.flash={ok:false,text:"Només el capità de l'equip local pot enviar aquesta acta."};render();return}
+  const a=normalitza(S.draft);
+  const chk=E.validarActa(a,rosters(f)); if(chk.errors.length)return;
+  const ara=new Date().toISOString();
+  let ok;
+  if(mode==="correccio"){
+    const prev=S.validades[f.id]||{};
+    ok=await guardar(()=>S.db.doc("validades/"+f.id).set({...a,validadaAt:prev.validadaAt||ara,validadaPer:prev.validadaPer||S.uid,corregidaAt:ara,corregidaPer:S.uid}),"Correcció desada. La classificació s'ha recalculat.");
+  }else{
+    const doc={...a,estat:"pendent",enviadaAt:ara,enviadaPer:S.uid,motiu:null};
+    ok=await guardar(()=>S.db.doc("actes/"+f.id).set(doc),mode==="valida"?null:"Acta enviada. Queda pendent de validar per l'administrador.");
+    if(ok&&mode==="valida")ok=await validar(f,doc,true);
+  }
+  if(ok){S.draft=null;S.editing=false}
+  render();
+}
+async function validar(f,a,silenci){
+  const ara=new Date().toISOString();
+  const {estat,enviadaAt,enviadaPer,motiu,...net}=a;
+  const ok=await guardar(()=>S.db.doc("validades/"+f.id).set({...net,validadaAt:ara,validadaPer:S.uid,enviadaAt:enviadaAt||null}),"Acta validada. La classificació s'ha recalculat.");
+  if(ok)await guardar(()=>S.db.doc("actes/"+f.id).update({estat:"validada",validadaAt:ara}),null);
+  if(!silenci)render();
+  return ok;
+}
+function retornar(box,f){
+  const t=el("textarea",{id:"motiu",rows:"3",style:"width:100%"});
+  const panel=el("div",{class:"card"},el("div",{class:"body"},el("label",{for:"motiu",text:"Motiu (el veurà qui ha enviat l'acta)"}),t,
+    el("div",{class:"actions"},el("button",{class:"btn danger",type:"button",text:"Retornar l'acta",onclick:async()=>{
+      if(!t.value.trim()){t.focus();return}
+      await guardar(()=>S.db.doc("actes/"+f.id).update({estat:"rebutjada",motiu:t.value.trim()}),"Acta retornada a l'equip.");render()}}),
+      el("button",{class:"btn sec",type:"button",text:"Cancel·lar",onclick:()=>panel.remove()}))));
+  box.append(panel); t.focus();
+}
+function renderWO(box,f){
+  const qui=el("select",{id:"wo-qui"},el("option",{value:"L",text:`${nomEq(f.local)} (local)`}),el("option",{value:"V",text:`${nomEq(f.visitant)} (visitant)`}));
+  const motiu=el("select",{id:"wo-motiu"},el("option",{value:"incompareixenca",text:"No es va presentar a l'eliminatòria"}),el("option",{value:"fora_termini",text:"Més de 15 dies sense jugar (no va tenir disponibilitat)"}));
+  if(foraTermini(f))motiu.value="fora_termini";
+  const panel=el("div",{class:"card"},el("div",{class:"body"},
+    el("p",{class:"note",text:"L'equip no presentat suma −1 punt; el rival en suma 3 i guanya tots els partits 6-0 6-0. Queda validat directament."}),
+    el("div",{class:"field"},el("label",{for:"wo-qui",text:"Equip no presentat"}),qui),
+    el("div",{class:"field"},el("label",{for:"wo-motiu",text:"Motiu"}),motiu),
+    el("div",{class:"actions"},el("button",{class:"btn",type:"button",text:"Registrar el WO",onclick:async()=>{
+      await guardar(()=>S.db.doc("validades/"+f.id).set({eliminatoria:f.id,divisio:f.divisio,tipus:"wo_equip",noPresentat:qui.value,motiu:motiu.value,validadaAt:new Date().toISOString(),validadaPer:S.uid}),"WO registrat. La classificació s'ha recalculat.");render()}}),
+      el("button",{class:"btn sec",type:"button",text:"Cancel·lar",onclick:()=>panel.remove()}))));
+  box.append(panel);
+}
+function confirmar(box,text,fn){
+  const panel=el("div",{class:"card"},el("div",{class:"body"},el("p",{text}),el("div",{class:"actions"},
+    el("button",{class:"btn danger",type:"button",text:"Sí, continuar",onclick:async()=>{await fn();render()}}),
+    el("button",{class:"btn sec",type:"button",text:"Cancel·lar",onclick:()=>panel.remove()}))));
+  box.append(panel);
+}
+
+/* ---------- render ---------- */
+let ultimaVista=null;
+function render(){
+  if(S.lliga)$("#temporada").textContent="Temporada "+S.lliga.temporada;
+  actualitzaFinestra();
+  $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!S.admin; $("#tabValidacio").hidden=!S.admin; $("#tabRols").hidden=!S.admin; $("#tabCapita").hidden=!(!S.admin&&S.db&&S.uid&&S.canWrite!==false);
+  const me=S.admin?[]:meusEquips(); $("#rolBadge").hidden=!me.length; $("#rolBadge").textContent=me.length?`${me.every(t=>t.startsWith("F-"))?"Capitana":"Capità"} de ${me.map(nomEq).join(", ")}`:"";
+  const np=pendents().length; $("#tabValidacio").textContent=np?`Validació (${np})`:"Validació";
+  const v=view(); const clau=v+location.hash;
+  if(clau!==ultimaVista){ if(ultimaVista!==null){S.flash=null;if(v!=="acta"||(S.draft&&("#acta-"+S.draft.eliminatoria)!==location.hash)){S.draft=null;S.editing=false}} ultimaVista=clau; }
+  document.querySelectorAll("nav.tabs a").forEach(a=>{if(a.dataset.view===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  // No refem el formulari mentre s'està omplint (es perdria el focus); només s'actualitza el resum
+  if(S.editing&&S.draft&&v==="acta"&&$("#resum")){actualitzaResum();return}
+  const box=$("#view"); box.replaceChildren(); S.editing=false;
+  const msg=stateMsg(); if(msg){$("#divPicker").hidden=true;box.append(el("div",{class:"state",text:msg}));return}
+  renderPicker();
+  if(v==="calendari")renderCalendari(box); else if(v==="classificacio")renderClassificacio(box); else if(v==="equips")renderEquips(box);
+  else if(v==="validacio")renderValidacio(box); else if(v==="avisos")renderAvisos(box); else if(v==="rols")renderRols(box); else if(v==="capita")renderCapita(box); else renderActaView(box);
+}
+window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0)});
+render();
+
+(async()=>{
+  const timer=setTimeout(()=>{S.timeout=true;render()},10000);
+  const [db,user,assets,sample]=await Promise.all([claude.use("db"),claude.use("user"),claude.use("assets"),claude.use("sample")]);
+  S.assets=assets; S.sample=sample; S.user=user;
+  if(sample){try{const l=await sample.limits();S.imgOk=!!(l&&l.images)}catch(e){S.imgOk=false}}
+  if(user){
+    try{S.admin=!!(await user.canEdit())}catch(e){S.admin=false}
+    try{const w=await user.can("data.write");S.canWrite=w==null?null:!!w}catch(e){S.canWrite=null}
+    try{S.uid=await user.id()}catch(e){S.uid=null}
+  }
+  if(!db){clearTimeout(timer);S.noDb=true;render();return}
+  S.db=db;
+  const fail=e=>{clearTimeout(timer);S.error=e;render()};
+  const done=()=>{if(Object.values(S.loaded).every(Boolean))clearTimeout(timer)};
+  const col=(path,key,loadKey)=>db.collection(path).onSnapshot(q=>{const o={};q.docs.forEach(d=>o[d.id]=d.data());S[key]=o;if(loadKey&&!q.metadata.fromCache)S.loaded[loadKey]=true;done();render()},loadKey?fail:()=>{});
+  db.doc("lliga/config").onSnapshot(s=>{S.lliga=s.exists?s.data():null;if(!s.metadata.fromCache)S.loaded.lliga=true;done();render()},fail);
+  col("equips","equips","equips");
+  col("calendari","calendari","calendari");
+  col("validades","validades","validades");
+  col("sortejos","sortejos",null);
+  db.doc("roles/capitans").onSnapshot(s=>{S.rols=s.exists?s.data():null;render()},()=>{});
+  if(S.canWrite!==false)col("actes","actes",null);
+  if(S.admin)col("solicituds","sol",null);
+  else if(S.uid&&S.canWrite!==false)db.doc("solicituds/"+S.uid).onSnapshot(s=>{S.meva=s.exists?s.data():null;render()},()=>{});
+  if(S.admin)db.doc("admin/avisos").onSnapshot(s=>{S.avisos=s.exists?s.data():null;render()},()=>{});
+})();
+</script>
+</body>
+</html>
