@@ -1,0 +1,17 @@
+# Mantiene activo el proyecto gratuito de Supabase (se pausa tras 1 semana sin actividad).
+# Hace una lectura mínima de la API pública dos veces por semana. Solo usa la clave pública (publishable).
+name: keepalive
+on:
+  schedule:
+    - cron: "17 6 * * 1,4"   # lunes y jueves, 06:17 UTC
+  workflow_dispatch: {}       # también se puede lanzar a mano desde la pestaña Actions
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lectura mínima de Supabase
+        run: |
+          code=$(curl -s -o /tmp/out -w "%{http_code}" "https://fcrlgspeywvfvxatydrg.supabase.co/rest/v1/equips?select=id&limit=1" \
+            -H "apikey: sb_publishable_SZnZtW5MsGYeL_2qb_74vw_5JaGU2dR")
+          echo "HTTP $code"; cat /tmp/out; echo
+          test "$code" = "200"
