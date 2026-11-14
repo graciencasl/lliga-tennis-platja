@@ -201,11 +201,13 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 </main>
 <dialog id="dlgLogin" aria-labelledby="loginTit"><form method="dialog" id="loginForm">
   <h2 id="loginTit">Entra</h2>
-  <p class="note" id="loginInfo">Escriu el teu correu i t'enviarem un codi per entrar. No cal contrasenya.</p>
+  <p class="note" id="loginInfo"></p>
   <div class="field"><label for="loginEmail">Correu electrònic</label><input id="loginEmail" type="email" autocomplete="email" required></div>
+  <div class="field" id="loginPwBox"><label for="loginPw" id="loginPwLabel">Contrasenya</label><input id="loginPw" type="password" autocomplete="current-password"></div>
   <div class="field" id="loginCodiBox" hidden><label for="loginCodi">Codi rebut per correu</label><input id="loginCodi" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></div>
   <div id="loginMsg" class="note" role="status"></div>
-  <div class="actions"><button class="btn" type="submit" id="loginEnvia">Envia el codi</button><button class="btn sec" type="button" id="loginTanca">Tanca</button></div>
+  <div class="actions"><button class="btn" type="submit" id="loginEnvia">Entra</button><button class="btn sec" type="button" id="loginTanca">Tanca</button></div>
+  <div class="actions" id="loginLinks"></div>
 </form></dialog>
 <dialog id="dlgEquip" aria-labelledby="dlgTitol"></dialog>
 <script>window.LCTP_CONFIG={url:"https://fcrlgspeywvfvxatydrg.supabase.co",key:"sb_publishable_SZnZtW5MsGYeL_2qb_74vw_5JaGU2dR"};window.LCTP_AUTH_PENDING=true;</script>
@@ -968,28 +970,72 @@ function render(){
 }
 window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0)});
 render();
-/* ---- entrada per codi (només a la web pròpia, amb window.LCTP_AUTH) ---- */
+/* ---- entrada amb correu i contrasenya (només a la web pròpia, amb window.LCTP_AUTH; D57) ---- */
 function pintaAuth(){
   const A=window.LCTP_AUTH, box=$("#authBox"); if(!A||!box)return; box.replaceChildren();
   const mail=A.email();
   if(mail){box.append(el("span",{class:"pill",text:mail}),el("button",{class:"btn sec",type:"button",text:"Surt",onclick:async()=>{await A.surt()}}))}
-  else box.append(el("button",{class:"btn sec",type:"button",id:"btnEntra",text:"Entra",onclick:()=>{$("#loginCodiBox").hidden=true;$("#loginEnvia").textContent="Envia el codi";$("#loginMsg").textContent="";$("#dlgLogin").showModal()}}));
+  else box.append(el("button",{class:"btn sec",type:"button",id:"btnEntra",text:"Entra",onclick:()=>{window.__loginMode("entra");$("#dlgLogin").showModal()}}));
 }
 (function(){
-  const A=window.LCTP_AUTH; if(!A)return; let pas=1;
+  const A=window.LCTP_AUTH; if(!A)return; let mode="entra";
+  const MODES={
+    entra:{tit:"Entra",info:"Escriu el correu i la contrasenya.",btn:"Entra",pw:true,codi:false,links:["crea","oblida"],pwLabel:"Contrasenya",ac:"current-password"},
+    crea:{tit:"Crea un compte",info:"Fes servir el teu correu i tria una contrasenya de 8 caràcters com a mínim. Després et demanarem que confirmis el correu amb un codi.",btn:"Crea el compte",pw:true,codi:false,links:["entra"],pwLabel:"Contrasenya",ac:"new-password"},
+    alta:{tit:"Confirma el correu",info:"T'hem enviat un codi al correu. Escriu-lo aquí (mira també la carpeta de correu brossa).",btn:"Confirma",pw:false,codi:true,links:["reenvia","entra"]},
+    oblida:{tit:"He oblidat la contrasenya",info:"Escriu el teu correu i t'enviarem un codi per triar una contrasenya nova.",btn:"Envia el codi",pw:false,codi:false,links:["entra"]},
+    rec:{tit:"Contrasenya nova",info:"Escriu el codi rebut per correu i la contrasenya nova (8 caràcters com a mínim).",btn:"Desa la contrasenya",pw:true,codi:true,links:["entra"],pwLabel:"Contrasenya nova",ac:"new-password"}
+  };
+  const LINKS={crea:"Crea un compte",oblida:"He oblidat la contrasenya",entra:"Ja tinc compte: entra",reenvia:"Reenvia el codi"};
+  function setMode(m,msg){
+    mode=m; const c=MODES[m];
+    $("#loginTit").textContent=c.tit; $("#loginInfo").textContent=c.info; $("#loginEnvia").textContent=c.btn;
+    $("#loginPwBox").hidden=!c.pw; $("#loginCodiBox").hidden=!c.codi; $("#loginPw").required=c.pw; $("#loginPw").value="";
+    if(c.pw){$("#loginPwLabel").textContent=c.pwLabel; $("#loginPw").autocomplete=c.ac}
+    $("#loginEmail").readOnly=(m==="alta"||m==="rec"); if(!c.codi)$("#loginCodi").value="";
+    $("#loginMsg").textContent=msg||"";
+    const box=$("#loginLinks"); box.replaceChildren(...c.links.map(k=>el("button",{class:"btn sec",type:"button",text:LINKS[k],onclick:()=>onLink(k)})));
+  }
+  window.__loginMode=setMode;
+  async function onLink(k){
+    const email=$("#loginEmail").value.trim();
+    if(k==="reenvia"){try{await A.reenviaCodi(email);$("#loginMsg").textContent="Codi enviat de nou."}catch(e){$("#loginMsg").textContent=errMsg(e)}return}
+    $("#loginEmail").readOnly=false; setMode(k);
+  }
+  function errMsg(e){
+    const m=e&&e.message||"";
+    if(/rate|limit|too many/i.test(m)||e.code===429)return "Massa intents o massa correus. Espera una estona i torna-ho a provar.";
+    if(/invalid login/i.test(m))return "Correu o contrasenya incorrectes.";
+    if(e.code==="user_already_exists")return "Ja existeix un compte amb aquest correu. Entra o recupera la contrasenya.";
+    if(/password/i.test(m)&&/(short|least|weak|characters)/i.test(m))return "La contrasenya és massa curta o massa feble (mínim 8 caràcters).";
+    if(/token|expired|invalid/i.test(m))return "El codi no és correcte o ha caducat.";
+    return "No s'ha pogut fer. Revisa les dades i torna-ho a provar.";
+  }
   A.ready().then(pintaAuth);
   $("#loginTanca").onclick=()=>$("#dlgLogin").close();
   $("#loginForm").addEventListener("submit",async e=>{
-    e.preventDefault(); const email=$("#loginEmail").value.trim(), msg=$("#loginMsg"); if(!email)return;
+    e.preventDefault(); const email=$("#loginEmail").value.trim(), pw=$("#loginPw").value, codi=$("#loginCodi").value.replace(/\s+/g,""), msg=$("#loginMsg"); if(!email)return;
+    const btn=$("#loginEnvia"); btn.disabled=true;
     try{
-      if(pas===1||$("#loginCodiBox").hidden){
-        await A.enviaCodi(email); pas=2; $("#loginCodiBox").hidden=false; $("#loginEnvia").textContent="Entra"; $("#loginCodi").focus();
-        msg.textContent="Si el correu és correcte, t'hem enviat un codi. Escriu-lo aquí (mira també la carpeta de correu brossa).";
-      }else{
-        const t=$("#loginCodi").value.replace(/\s+/g,""); if(!t){msg.textContent="Escriu el codi.";return}
-        await A.verificaCodi(email,t); msg.textContent="Dins!"; $("#dlgLogin").close();
+      if(mode==="entra"){
+        try{await A.entra(email,pw);msg.textContent="Dins!";$("#dlgLogin").close()}
+        catch(err){ if(err.code==="email_not_confirmed"){await A.reenviaCodi(email);setMode("alta","Encara no havies confirmat el correu. T'hem enviat un codi.")} else throw err }
+      }else if(mode==="crea"){
+        if(pw.length<8){msg.textContent="La contrasenya ha de tenir 8 caràcters com a mínim.";return}
+        const r=await A.registra(email,pw);
+        if(r.sessio){$("#dlgLogin").close()} else setMode("alta","Si el correu és correcte, t'hem enviat un codi. Si ja tenies compte, torna enrere i entra.");
+      }else if(mode==="alta"){
+        if(!codi){msg.textContent="Escriu el codi.";return}
+        await A.confirmaAlta(email,codi);msg.textContent="Dins!";$("#dlgLogin").close();
+      }else if(mode==="oblida"){
+        await A.demanaRecuperacio(email);setMode("rec","Si el correu té un compte, t'hem enviat un codi.");
+      }else if(mode==="rec"){
+        if(!codi){msg.textContent="Escriu el codi.";return}
+        if(pw.length<8){msg.textContent="La contrasenya ha de tenir 8 caràcters com a mínim.";return}
+        await A.novaContrasenya(email,codi,pw);
       }
-    }catch(err){msg.textContent=/limit|rate/i.test(err.message||"")?"S'han demanat massa codis. Espera una estona i torna-ho a provar.":(pas===2&&!$("#loginCodiBox").hidden?"El codi no és correcte o ha caducat.":"No s'ha pogut enviar el codi. Revisa el correu i torna-ho a provar.")}
+    }catch(err){msg.textContent=errMsg(err)}
+    finally{btn.disabled=false}
   });
 })();
 
