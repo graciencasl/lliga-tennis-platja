@@ -1009,7 +1009,7 @@ function pintaAuth(){
     if(e.code==="user_already_exists")return "Ja existeix un compte amb aquest correu. Entra o recupera la contrasenya.";
     if(/password/i.test(m)&&/(short|least|weak|characters)/i.test(m))return "La contrasenya és massa curta o massa feble (mínim 8 caràcters).";
     if(/token|expired|invalid/i.test(m))return "El codi no és correcte o ha caducat.";
-    return "No s'ha pogut fer. Revisa les dades i torna-ho a provar.";
+    return "No s'ha pogut fer. Revisa les dades i torna-ho a provar."+(m?" ("+String(m).slice(0,120)+")":"");
   }
   A.ready().then(pintaAuth);
   $("#loginTanca").onclick=()=>$("#dlgLogin").close();
