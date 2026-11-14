@@ -984,6 +984,7 @@ function pintaAuth(){
     crea:{tit:"Crea un compte",info:"Fes servir el teu correu i tria una contrasenya de 8 caràcters com a mínim. Després et demanarem que confirmis el correu amb un codi.",btn:"Crea el compte",pw:true,codi:false,links:["entra"],pwLabel:"Contrasenya",ac:"new-password"},
     alta:{tit:"Confirma el correu",info:"T'hem enviat un codi al correu. Escriu-lo aquí (mira també la carpeta de correu brossa).",btn:"Confirma",pw:false,codi:true,links:["reenvia","entra"]},
     oblida:{tit:"He oblidat la contrasenya",info:"Escriu el teu correu i t'enviarem un codi per triar una contrasenya nova.",btn:"Envia el codi",pw:false,codi:false,links:["entra"]},
+    nova:{tit:"Contrasenya nova",info:"Tria la contrasenya nova (8 caràcters com a mínim).",btn:"Desa la contrasenya",pw:true,codi:false,links:[],pwLabel:"Contrasenya nova",ac:"new-password"},
     rec:{tit:"Contrasenya nova",info:"Escriu el codi rebut per correu i la contrasenya nova (8 caràcters com a mínim).",btn:"Desa la contrasenya",pw:true,codi:true,links:["entra"],pwLabel:"Contrasenya nova",ac:"new-password"}
   };
   const LINKS={crea:"Crea un compte",oblida:"He oblidat la contrasenya",entra:"Ja tinc compte: entra",reenvia:"Reenvia el codi"};
@@ -1011,7 +1012,7 @@ function pintaAuth(){
     if(/token|expired|invalid/i.test(m))return "El codi no és correcte o ha caducat.";
     return "No s'ha pogut fer. Revisa les dades i torna-ho a provar."+(m?" ("+String(m).slice(0,120)+")":"");
   }
-  A.ready().then(pintaAuth);
+  A.ready().then(()=>{pintaAuth(); if(window.LCTP_RECOVERY){setMode("nova"); $("#loginEmail").value=A.email()||""; $("#loginEmail").readOnly=true; $("#dlgLogin").showModal()}});
   $("#loginTanca").onclick=()=>$("#dlgLogin").close();
   $("#loginForm").addEventListener("submit",async e=>{
     e.preventDefault(); const email=$("#loginEmail").value.trim(), pw=$("#loginPw").value, codi=$("#loginCodi").value.replace(/\s+/g,""), msg=$("#loginMsg"); if(!email)return;
@@ -1029,6 +1030,9 @@ function pintaAuth(){
         await A.confirmaAlta(email,codi);msg.textContent="Dins!";$("#dlgLogin").close();
       }else if(mode==="oblida"){
         await A.demanaRecuperacio(email);setMode("rec","Si el correu té un compte, t'hem enviat un codi.");
+      }else if(mode==="nova"){
+        if(pw.length<8){msg.textContent="La contrasenya ha de tenir 8 caràcters com a mínim.";return}
+        await A.canviaContrasenya(pw);
       }else if(mode==="rec"){
         if(!codi){msg.textContent="Escriu el codi.";return}
         if(pw.length<8){msg.textContent="La contrasenya ha de tenir 8 caràcters com a mínim.";return}

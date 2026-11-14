@@ -7,7 +7,19 @@
   if (!CFG || !lib) { window.claude = { use: async () => null }; return; }
   const sb = lib.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
   let session = null, listo = false, recuperant = false;
-  const ready = sb.auth.getSession().then(r => { session = r.data.session; listo = true; }).catch(() => { listo = true; });
+  /* Si el correo lleva un enlace (plantilla por defecto), Supabase vuelve a la web con la sesión en el fragmento #access_token=...: se aprovecha. */
+  const frag = new URLSearchParams(location.hash.replace(/^#/, "")); let enllac = null;
+  if (frag.get("access_token") && frag.get("refresh_token")) {
+    enllac = { access_token: frag.get("access_token"), refresh_token: frag.get("refresh_token"), tipus: frag.get("type") };
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  const ready = (async () => {
+    try {
+      if (enllac) { const r = await sb.auth.setSession({ access_token: enllac.access_token, refresh_token: enllac.refresh_token }); if (!r.error && enllac.tipus === "recovery") window.LCTP_RECOVERY = true; }
+      const r = await sb.auth.getSession(); session = r.data.session;
+    } catch (e) { /* sin sesión */ } finally { listo = true; }
+  })();
+  const tornada = () => location.origin + location.pathname;
   sb.auth.onAuthStateChange((ev, s) => {
     const abans = session && session.user ? session.user.id : null, despres = s && s.user ? s.user.id : null;
     session = s; if (listo && !recuperant && abans !== despres) location.reload();
@@ -147,19 +159,27 @@
     ready: () => ready,
     entra: async (email, password) => { const r = await sb.auth.signInWithPassword({ email, password }); if (r.error) throw err(r.error, falta(r.error) ? "email_not_confirmed" : null); },
     registra: async (email, password) => {
-      const r = await sb.auth.signUp({ email, password });
+      const r = await sb.auth.signUp({ email, password, options: { emailRedirectTo: tornada() } });
       if (r.error) throw err(r.error, /already|registered/i.test(r.error.message || "") ? "user_already_exists" : null);
       return { sessio: !!(r.data && r.data.session) };
     },
     reenviaCodi: async email => { const r = await sb.auth.resend({ type: "signup", email }); if (r.error) throw err(r.error); },
     confirmaAlta: async (email, token) => { const r = await sb.auth.verifyOtp({ email, token, type: "signup" }); if (r.error) throw err(r.error); },
-    demanaRecuperacio: async email => { const r = await sb.auth.resetPasswordForEmail(email); if (r.error) throw err(r.error); },
+    demanaRecuperacio: async email => { const r = await sb.auth.resetPasswordForEmail(email, { redirectTo: tornada() }); if (r.error) throw err(r.error); },
     novaContrasenya: async (email, token, password) => {
       recuperant = true;                                   /* evita que la recàrrega per canvi de sessió talli el procés */
       try {
-        const v = await sb.auth.verifyOtp({ email, token, type: "recovery" }); if (v.error) throw err(v.error);
+        let v = await sb.auth.verifyOtp({ email, token, type: "recovery" });
+        /* una cuenta nunca confirmada recibe el código de alta en lugar del de recuperación: se prueba también */
+        if (v.error) { const v2 = await sb.auth.verifyOtp({ email, token, type: "signup" }); if (!v2.error) v = v2; }
+        if (v.error) throw err(v.error);
         const u = await sb.auth.updateUser({ password }); if (u.error) throw err(u.error);
       } catch (e) { recuperant = false; throw e; }
+      location.reload();
+    },
+    canviaContrasenya: async password => {            /* tras entrar por el enlace de recuperación */
+      recuperant = true;
+      try { const u = await sb.auth.updateUser({ password }); if (u.error) throw err(u.error); } catch (e) { recuperant = false; throw e; }
       location.reload();
     },
     surt: async () => { await sb.auth.signOut(); }
