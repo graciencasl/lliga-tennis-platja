@@ -63,6 +63,8 @@
       id: r.id, data: { ...r.data, equip: r.equip, eliminatoria: r.eliminatoria, nom: r.nom, updatedAt: r.updated_at } }));
     if (nom === "esborranys") return ck(await sb.from("esborranys").select("eliminatoria,data,actualitzat_per,actualitzat_at")).map(r => ({
       id: r.eliminatoria, data: { ...r.data, actualitzatPer: r.actualitzat_per, actualitzatAt: r.actualitzat_at } }));
+    if (nom === "incidencies") { if (!session) return []; return ck(await sb.from("incidencies").select("id,user_id,email,text,audio,estat,nota,created_at,updated_at,resolta_at").order("created_at", { ascending: false })).map(r => ({
+      id: r.id, data: { userId: r.user_id, email: r.email, text: r.text, audio: r.audio, estat: r.estat, nota: r.nota, creadaAt: r.created_at, modificadaAt: r.updated_at, resoltaAt: r.resolta_at } })); }
     throw new Error("col·lecció desconeguda: " + nom);
   }
   let esFct = false; const fctNoms = {};
@@ -113,6 +115,12 @@
       data: treu({ ...d, ...(d.arxiu ? { arxiu: treu(d.arxiu, ["url"]) } : {}) }, ["estat", "motiu", "enviadaAt", "enviadaPer", "eliminatoria"]) }, { onConflict: "eliminatoria" }));
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
     if (c === "membres") return ck(await sb.from("membres").upsert({ user_id: id, equip: d.equip, jugador: d.jugador == null ? null : d.jugador, aprovat: !!d.aprovat, nom_declarat: d.nomDeclarat || null }, { onConflict: "user_id" }));
+    if (c === "incidencies") {   /* D75: primero se intenta actualizar; si no existe, se crea (el servidor fija autor, correo y estado) */
+      const camps = { text: d.text || null, audio: d.audio || null, estat: d.estat || "oberta", nota: d.nota || null };
+      const u = ck(await sb.from("incidencies").update(camps).eq("id", id).select("id"));
+      if (u && u.length) return;
+      return ck(await sb.from("incidencies").insert({ id, text: camps.text, audio: camps.audio }));
+    }
     if (c === "acords") return ck(await sb.rpc("accepta_acord"));
     if (c === "telefons") return ck(await sb.from("capitans_contacte").upsert({ user_id: id, telefon: d.telefon }, { onConflict: "user_id" }));
     if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
@@ -122,7 +130,7 @@
   }
   async function esborra(path) {
     const [c, id] = path.split("/");
-    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], membres: ["membres", "user_id"], esborranys: ["esborranys", "eliminatoria"], telefons: ["capitans_contacte", "user_id"] }[c];
+    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], membres: ["membres", "user_id"], esborranys: ["esborranys", "eliminatoria"], telefons: ["capitans_contacte", "user_id"], incidencies: ["incidencies", "id"] }[c];
     if (!t) throw new Error("esborrat no permès: " + path);
     ck(await sb.from(t[0]).delete().eq(t[1], id));
   }
@@ -183,7 +191,24 @@
       const r = await sb.storage.from("actes").upload(path, file, { contentType: file.type, upsert: false });
       if (r.error) fail(r.error); return { id: path, url: null };
     },
-    url: async path => { const r = await sb.storage.from("actes").createSignedUrl(path, 300); return r.error ? null : r.data.signedUrl; }
+    url: async path => { const r = await sb.storage.from("actes").createSignedUrl(path, 300); return r.error ? null : r.data.signedUrl; },
+    /* D75: mensajes de voz de las incidencias (bucket privado «incidencies», carpeta = id del usuario) */
+    pujaVeu: async blob => {
+      const u = uid(); if (!u) throw new Error("sense sessió");
+      const tipus = (blob.type || "audio/webm").split(";")[0];
+      const ext = tipus.includes("mp4") ? "m4a" : tipus.includes("ogg") ? "ogg" : tipus.includes("mpeg") ? "mp3" : tipus.includes("wav") ? "wav" : "webm";
+      const path = `${u}/${Date.now()}.${ext}`;
+      const r = await sb.storage.from("incidencies").upload(path, blob, { contentType: tipus, upsert: false });
+      if (r.error) fail(r.error); return path;
+    },
+    urlVeu: async path => { const r = await sb.storage.from("incidencies").createSignedUrl(path, 300); return r.error ? null : r.data.signedUrl; },
+    esborraVeu: async path => { if (!path) return; const r = await sb.storage.from("incidencies").remove([path]); if (r.error) fail(r.error); },
+    /* D74: el administrador borra todos los archivos de una eliminatoria */
+    esborraCarpeta: async elim => {
+      const l = await sb.storage.from("actes").list(elim); if (l.error) fail(l.error);
+      const noms = (l.data || []).map(x => `${elim}/${x.name}`);
+      if (noms.length) { const r = await sb.storage.from("actes").remove(noms); if (r.error) fail(r.error); }
+    }
   };
 
   /* ---------- sessió (correu + contrasenya; el correu es confirma amb un codi, D57) ---------- */

@@ -241,6 +241,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <a href="#capita" data-view="capita" id="tabCapita" hidden>El meu equip</a>
     <a href="#estadistiques" data-view="estadistiques" id="tabEstad" hidden>Estadístiques</a>
     <a href="#alineacions" data-view="alineacions" id="tabAlin" hidden>Alineacions</a>
+    <a href="#incidencies" data-view="incidencies" id="tabInc" hidden>Incidències</a>
     <a href="#avisos" data-view="avisos" id="tabAvisos" hidden>Avisos</a>
   </nav>
   <div class="divs" id="divPicker" hidden>
@@ -281,7 +282,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 const E=window.LligaEngine;
 const MESOS=["gener","febrer","març","abril","maig","juny","juliol","agost","setembre","octubre","novembre","desembre"];
 const deMes=m=>(/^[aeiou]/.test(m)?"d'":"de ")+m;
-const S={membres:{},memEq:"",memJug:"",memMsg:null,jugStat:null,alineacions:{},esborranys:{},esbReintent:false,tornObert:null,lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
+const S={incidencies:{},incVeuTreta:false,incEdit:null,incVeu:null,incText:"",incMsg:null,membres:{},memEq:"",memJug:"",memMsg:null,jugStat:null,alineacions:{},esborranys:{},esbReintent:false,tornObert:null,lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
   admin:false,canWrite:null,db:null,assets:null,sample:null,imgOk:false,llegint:false,uid:null,user:null,rols:null,sol:{},meva:null,capSel:[],capNom:"",capMsg:null,noms:{},rolsMsg:null,cerca:{},filtre:(()=>{try{return localStorage.getItem("lctp.filtre")||""}catch(e){return ""}})(),
   loaded:{lliga:false,equips:false,calendari:false,validades:false},timeout:false,error:null,noDb:false,
   draft:null,editing:false,flash:null,busy:false,sorteigObert:null,equipObert:null,jornadaOberta:null,equipMembres:null,actaPop:null,
@@ -343,6 +344,7 @@ function view(){
   if(h==="capita"&&!S.admin&&!S.fct&&S.uid&&S.canWrite!==false)return h;
   if(h==="estadistiques"&&potEstad())return h;
   if(h==="alineacions"&&potAlin())return h;
+  if(h==="incidencies"&&potInc())return h;
   return ["equips","classificacio"].includes(h)?h:"calendari";
 }
 function renderPicker(){
@@ -1207,6 +1209,7 @@ function renderActaView(box){
     }
     if(S.admin)box.append(el("div",{class:"actions"},
       v.tipus!=="wo_equip"?el("button",{class:"btn sec",type:"button",text:"Corregir l'acta",onclick:()=>{S.draft={...clonaActa(v),mode:"correccio"};omplirDraft(S.draft);render()}}):null,
+      el("button",{class:"btn danger",type:"button",id:"b-esborra-acta",text:"Esborrar l'acta",onclick:()=>esborraActa(box,f)}),
       el("button",{class:"btn danger",type:"button",text:"Anul·lar la validació",onclick:()=>confirmar(box,"L'eliminatòria deixarà de comptar a la classificació fins que es torni a validar.",async()=>{
         await guardar(()=>S.db.doc("validades/"+f.id).delete(),"Validació anul·lada. La classificació s'ha recalculat.");
         if(a)await guardar(()=>S.db.doc("actes/"+f.id).update({estat:"pendent"}),null);
@@ -1226,6 +1229,7 @@ function renderActaView(box){
       acts.append(el("button",{class:"btn",type:"button",text:"Validar",disabled:chk.errors.length>0,onclick:()=>validar(f,a)}));
       acts.append(el("button",{class:"btn danger",type:"button",text:"Retornar a l'equip",onclick:()=>retornar(box,f)}));
     }
+    if(S.admin)acts.append(el("button",{class:"btn danger",type:"button",id:"b-esborra-acta",text:"Esborrar l'acta",onclick:()=>esborraActa(box,f)}));
     box.append(acts);
     return;
   }
@@ -1243,6 +1247,130 @@ function renderActaView(box){
   if(potEnviar(f)&&!esb)acts.append(el("button",{class:"btn",type:"button",text:"Introduir l'acta",onclick:()=>{S.draft={...actaBuida(f),mode:"enviament",presel:{L:[],V:[]}};render()}}));
   if(S.admin)acts.append(el("button",{class:"btn sec",type:"button",text:"Registrar WO d'equip",onclick:()=>renderWO(box,f)}));
   box.append(acts);
+}
+/* ---------- incidències (D75): text i/o missatge de veu, per a qualsevol persona amb sessió ---------- */
+const potInc=()=>AUTO&&!!S.uid&&!S.fct&&S.canWrite!==false;
+let incRec=null;   // {mr, chunks, stream, timer}
+function incAturaGrav(){if(incRec){try{incRec.mr.state!=="inactive"&&incRec.mr.stop()}catch(e){}clearTimeout(incRec.timer)}}
+function incNeteja(){incAturaGrav();incRec=null;if(S.incVeu&&S.incVeu.url)try{URL.revokeObjectURL(S.incVeu.url)}catch(e){}S.incVeu=null}
+function renderIncidencies(box){
+  box.append(el("h2",{text:S.admin?"Incidències dels usuaris":"Envia una incidència"}));
+  box.append(el("p",{class:"note",text:S.admin?"Aquí veus totes les incidències (text i missatges de veu). Pots deixar-hi una nota, marcar-les com a resoltes o esborrar-les.":"Explica'ns un problema de la web o de les dades de la lliga, amb text o amb un missatge de veu. Només el veuen l'administrador i tu; pots corregir o esborrar la teva incidència mentre estigui oberta."}));
+  if(!S.admin)box.append(el("p",{class:"note",text:"El text i la veu són dades personals: es guarden en un espai privat i només hi accedeixen l'administrador i tu. Si no vols que es conservin, pots esborrar la teva incidència en qualsevol moment."}));
+  if(S.incMsg)box.append(el("div",{class:S.incMsg.ok?"oklist":"errlist",id:"inc-msg",text:S.incMsg.text}));
+  const ed=S.incEdit&&S.incidencies[S.incEdit]?{id:S.incEdit,...S.incidencies[S.incEdit]}:null;
+  if(S.incEdit&&!ed)S.incEdit=null;
+  const f=el("div",{class:"card",id:"inc-form",style:"padding:12px;margin:12px 0"});
+  f.append(el("h3",{text:ed?"Corregeix la incidència":"Nova incidència",style:"margin-top:0"}));
+  const ta=el("textarea",{id:"inc-text",rows:"4",maxlength:"2000","aria-label":"Text de la incidència",placeholder:"Descriu què passa i en quina pantalla…",style:"width:100%;box-sizing:border-box"});
+  ta.value=S.incText||"";
+  ta.oninput=()=>{S.incText=ta.value;cnt.textContent=`${ta.value.length}/2000`};
+  const cnt=el("small",{text:`${ta.value.length}/2000`});
+  f.append(ta,cnt);
+  // veu
+  const veu=el("div",{id:"inc-veu",style:"margin:10px 0"});
+  const veuActual=S.incVeu?{url:S.incVeu.url}:(ed&&ed.audio&&!S.incVeuTreta?{path:ed.audio}:null);
+  const grabant=!!(incRec&&incRec.mr&&incRec.mr.state==="recording");
+  const nomesVeu=typeof MediaRecorder!=="undefined"&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
+  if(!nomesVeu)veu.append(el("p",{class:"note",text:"Aquest navegador no permet gravar veu: escriu la incidència."}));
+  else{
+    const bar=el("div",{class:"actions"});
+    if(grabant){
+      bar.append(el("button",{class:"btn danger",type:"button",id:"inc-atura",text:"■ Atura la gravació",onclick:()=>incAturaGrav()}));
+      bar.append(el("span",{class:"note",id:"inc-grav",text:"Gravant… (màxim 60 segons)"}));
+    }else{
+      bar.append(el("button",{class:"btn sec",type:"button",id:"inc-grava",text:veuActual?"● Grava'n una altra":"● Grava un missatge de veu",onclick:()=>incGrava()}));
+    }
+    veu.append(bar);
+  }
+  if(veuActual&&!grabant){
+    const au=el("audio",{controls:"",id:"inc-audio",style:"display:block;margin:8px 0;max-width:100%"});
+    if(veuActual.url)au.src=veuActual.url; else carregaVeu(au,veuActual.path);
+    veu.append(au,el("button",{class:"btn sec",type:"button",id:"inc-veu-treu",text:"Treu el missatge de veu",onclick:()=>{if(S.incVeu){incNeteja()}else S.incVeuTreta=true;render()}}));
+  }
+  f.append(veu);
+  const acts=el("div",{class:"actions"});
+  acts.append(el("button",{class:"btn",type:"button",id:"inc-envia",text:ed?"Desa els canvis":"Envia la incidència",disabled:grabant||S.busy,onclick:()=>incEnvia(ed)}));
+  if(ed)acts.append(el("button",{class:"btn sec",type:"button",id:"inc-cancela",text:"Cancel·la",onclick:()=>{incNeteja();S.incEdit=null;S.incVeuTreta=false;S.incText="";render()}}));
+  f.append(acts);
+  box.append(f);
+  // llista
+  const llista=Object.entries(S.incidencies||{}).map(([id,i])=>({id,...i})).filter(i=>S.admin||i.userId===S.uid).sort((a,b)=>String(b.creadaAt).localeCompare(String(a.creadaAt)));
+  box.append(el("h3",{text:S.admin?`Totes les incidències (${llista.length})`:`Les meves incidències (${llista.length})`}));
+  if(!llista.length)box.append(el("div",{class:"state",text:"Encara no hi ha cap incidència."}));
+  for(const i of llista){
+    const oberta=i.estat!=="resolta";
+    const c=el("div",{class:"card inc",id:"inc-"+i.id,style:"padding:12px;margin:8px 0"});
+    c.append(el("div",{},el("strong",{text:S.admin?(i.email||"(sense correu)"):"La meva incidència"})," · ",el("small",{text:dataHora(i.creadaAt)+(i.modificadaAt&&i.modificadaAt!==i.creadaAt&&Math.abs(new Date(i.modificadaAt)-new Date(i.creadaAt))>2000?" (modificada)":"")})," ",el("span",{class:"chip",text:oberta?"Oberta":"Resolta"})));
+    if(i.text)c.append(el("p",{class:"inc-text",text:i.text,style:"white-space:pre-wrap;margin:8px 0"}));
+    if(i.audio){const au=el("audio",{controls:"",style:"display:block;margin:8px 0;max-width:100%"});carregaVeu(au,i.audio);c.append(au)}
+    if(i.nota)c.append(el("p",{class:"note",text:"Nota de l'administrador: "+i.nota}));
+    const a=el("div",{class:"actions"});
+    if(!S.admin&&oberta)a.append(el("button",{class:"btn sec",type:"button",class2:"x",text:"Corregeix",onclick:()=>{incNeteja();S.incEdit=i.id;S.incText=i.text||"";S.incVeuTreta=false;render();window.scrollTo(0,0)}}));
+    if(S.admin||oberta)a.append(el("button",{class:"btn danger",type:"button",text:"Esborra",onclick:()=>confirmar(box,"S'esborrarà la incidència"+(i.audio?" i el missatge de veu":"")+". No es pot desfer.",async()=>{
+      const ok=await guardar(async()=>{await S.db.doc("incidencies/"+i.id).delete();if(i.audio)try{await S.assets.esborraVeu(i.audio)}catch(e){}},"Incidència esborrada.");
+      if(ok&&S.incEdit===i.id){incNeteja();S.incEdit=null;S.incText=""}S.incMsg=S.flash;S.flash=null},{titol:"Esborrar la incidència?",si:"Sí, esborra-la"})}));
+    c.append(a);
+    if(S.admin){
+      const nt=el("textarea",{rows:"2",maxlength:"2000","aria-label":"Nota",placeholder:"Nota (opcional)",style:"width:100%;box-sizing:border-box"});nt.value=i.nota||"";
+      const b=el("div",{class:"actions"},
+        el("button",{class:"btn sec",type:"button",text:"Desa la nota",onclick:async()=>{await guardar(()=>S.db.doc("incidencies/"+i.id).set({text:i.text,audio:i.audio,estat:i.estat,nota:nt.value.trim()}),null);render()}}),
+        el("button",{class:"btn",type:"button",class2:"x",text:oberta?"Marca-la com a resolta":"Reobre-la",onclick:async()=>{await guardar(()=>S.db.doc("incidencies/"+i.id).set({text:i.text,audio:i.audio,estat:oberta?"resolta":"oberta",nota:nt.value.trim()}),null);render()}}));
+      c.append(nt,b);
+    }
+    box.append(c);
+  }
+}
+async function carregaVeu(au,path){try{const u=S.assets&&S.assets.urlVeu?await S.assets.urlVeu(path):null;if(u)au.src=u;else au.after(el("small",{text:"No s'ha pogut carregar la veu."}))}catch(e){}}
+async function incGrava(){
+  S.incMsg=null;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const tipus=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
+    const mr=tipus?new MediaRecorder(stream,{mimeType:tipus}):new MediaRecorder(stream);
+    const chunks=[]; incRec={mr,chunks,stream,timer:setTimeout(()=>incAturaGrav(),60000)};
+    mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+    mr.onstop=()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(chunks,{type:(mr.mimeType||tipus||"audio/webm").split(";")[0]});
+      incRec=null;
+      if(blob.size>2*1024*1024){S.incMsg={ok:false,text:"El missatge de veu és massa llarg (màxim 2 MB). Grava'n un de més curt."}}
+      else if(blob.size>0){if(S.incVeu&&S.incVeu.url)try{URL.revokeObjectURL(S.incVeu.url)}catch(e){}S.incVeu={blob,url:URL.createObjectURL(blob)};S.incVeuTreta=false}
+      render();
+    };
+    mr.start(); render();
+  }catch(e){S.incMsg={ok:false,text:"No s'ha pogut accedir al micròfon. Revisa el permís del navegador o escriu la incidència."};render()}
+}
+function uuidNou(){if(crypto.randomUUID)return crypto.randomUUID();const b=crypto.getRandomValues(new Uint8Array(16));b[6]=b[6]&15|64;b[8]=b[8]&63|128;const h=[...b].map(x=>x.toString(16).padStart(2,"0")).join("");return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`}
+async function incEnvia(ed){
+  S.incMsg=null;
+  const text=(S.incText||"").trim();
+  const nouBlob=S.incVeu&&S.incVeu.blob;
+  const audioVell=ed&&ed.audio&&!S.incVeuTreta&&!nouBlob?ed.audio:null;
+  if(!text&&!nouBlob&&!audioVell){S.incMsg={ok:false,text:"Escriu un text o grava un missatge de veu."};render();return}
+  const id=ed?ed.id:uuidNou();
+  let path=audioVell, subit=null;
+  const ok=await guardar(async()=>{
+    if(nouBlob){subit=await S.assets.pujaVeu(nouBlob);path=subit}
+    await S.db.doc("incidencies/"+id).set({text,audio:path,estat:ed?ed.estat:"oberta",nota:ed?ed.nota:null});
+    if(ed&&ed.audio&&ed.audio!==path)try{await S.assets.esborraVeu(ed.audio)}catch(e){}
+  },ed?"Incidència corregida.":"Incidència enviada. Gràcies! L'administrador la revisarà.");
+  if(!ok&&subit)try{await S.assets.esborraVeu(subit)}catch(e){}
+  S.incMsg=S.flash;S.flash=null;
+  if(ok){incNeteja();S.incEdit=null;S.incVeuTreta=false;S.incText=""}
+  render();
+}
+// D74: el administrador esborra l'acta, el resultat validat i les fotos; l'eliminatòria torna a «per jugar»
+function esborraActa(box,f){
+  confirmar(box,`S'esborrarà per complet l'acta de ${nomEq(f.local)} – ${nomEq(f.visitant)}: el resultat, la foto adjunta i l'esborrany. L'eliminatòria tornarà a «per jugar» i la classificació es recalcularà. No es pot desfer.`,async()=>{
+    const ok=await guardar(async()=>{
+      if(S.assets&&S.assets.esborraCarpeta)await S.assets.esborraCarpeta(f.id);
+      await S.db.doc("validades/"+f.id).delete();
+      await S.db.doc("actes/"+f.id).delete();
+      try{await S.db.doc("esborranys/"+f.id).delete()}catch(e){}
+    },"Acta esborrada. L'eliminatòria torna a estar per jugar i la classificació s'ha recalculat.");
+    if(ok)location.hash="#calendari";
+  },{titol:"Esborrar l'acta?",si:"Sí, esborra-la"});
 }
 function omplirDraft(d){ // deixa l'esborrany amb 3 files de sets i parelles de 2
   d.partits=d.partits.map(p=>({estat:p.estat,L:p.L||[null,null],V:p.V||[null,null],
@@ -1665,12 +1793,14 @@ function confirmar(box,text,fn,opts={}){
 /* ---------- render ---------- */
 let ultimaVista=null;
 function render(){
+  if(incRec&&view()!=="incidencies")incAturaGrav();
+  if(view()!=="incidencies")S.incMsg=null;
   if(S.lliga)$("#temporada").textContent="Temporada "+S.lliga.temporada;
   actualitzaFinestra(); actualitzaJornada();
   if(dlgM.open){if(view()!=="equips")dlgM.close();else omplirMembres()}
   if(dlgA.open){if(view()==="acta")dlgA.close();else omplirActaPop()}
   if(dlgJ2.open){if(view()!=="estadistiques")dlgJ2.close();else omplirJugador()}
-  $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!(S.admin||S.fct); $("#tabValidacio").hidden=!(S.admin||S.fct); $("#tabRols").hidden=!(S.admin||S.fct); $("#tabCapita").hidden=!(!S.admin&&!S.fct&&S.db&&S.uid&&S.canWrite!==false); $("#tabEstad").hidden=!potEstad(); $("#tabAlin").hidden=!potAlin();
+  $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!(S.admin||S.fct); $("#tabValidacio").hidden=!(S.admin||S.fct); $("#tabRols").hidden=!(S.admin||S.fct); $("#tabCapita").hidden=!(!S.admin&&!S.fct&&S.db&&S.uid&&S.canWrite!==false); $("#tabEstad").hidden=!potEstad(); $("#tabAlin").hidden=!potAlin(); $("#tabInc").hidden=!potInc(); {const n=S.admin?Object.values(S.incidencies||{}).filter(i=>i.estat!=="resolta").length:0;$("#tabInc").textContent=n?`Incidències (${n})`:"Incidències"}
   { const part=AUTO&&S.uid&&!S.admin&&(S.fct||meusEquips().length>0||!!(membreMeu()&&membreMeu().aprovat)); const falta=part&&S.acord!==undefined&&!acordOk();
     $("#avisAcord").hidden=!falta; $("#lnkAcord").hidden=!AUTO;
     if(falta&&!S.acordAuto&&!dlgAc.open&&!document.querySelector("dialog[open]")){S.acordAuto=true;obreAcord()} }
@@ -1685,7 +1815,7 @@ function render(){
   const msg=stateMsg(); if(msg){$("#divPicker").hidden=true;box.append(el("div",{class:"state",text:msg}));return}
   renderPicker();
   if(v==="calendari")renderCalendari(box); else if(v==="classificacio")renderClassificacio(box); else if(v==="equips")renderEquips(box);
-  else if(v==="validacio")renderValidacio(box); else if(v==="avisos")renderAvisos(box); else if(v==="rols")(S.fct&&!S.admin?renderRolsFct:renderRols)(box); else if(v==="capita")renderCapita(box); else if(v==="estadistiques")renderEstadistiques(box); else if(v==="alineacions")renderAlineacions(box); else renderActaView(box);
+  else if(v==="validacio")renderValidacio(box); else if(v==="avisos")renderAvisos(box); else if(v==="rols")(S.fct&&!S.admin?renderRolsFct:renderRols)(box); else if(v==="capita")renderCapita(box); else if(v==="estadistiques")renderEstadistiques(box); else if(v==="alineacions")renderAlineacions(box); else if(v==="incidencies")renderIncidencies(box); else renderActaView(box);
 }
 (function(){ /* classificació: lliscar a esquerra/dreta canvia de divisió (M1 → M2 → M3 → F1 → F2 → F3), D68 */
   let sx=null,sy=null; const v=$("#view");
@@ -1799,6 +1929,7 @@ function pintaAuth(){
   if(S.admin)col("solicituds","sol",null);
   else if(S.uid&&S.canWrite!==false)db.doc("solicituds/"+S.uid).onSnapshot(s=>{S.meva=s.exists?s.data():null;render()},()=>{});
   if(AUTO&&S.uid)col("alineacions","alineacions");
+  if(AUTO&&S.uid&&!S.fct)col("incidencies","incidencies",null);
   if(AUTO&&S.uid)col("membres","membres",null);
   if(AUTO&&S.uid)col("contactes","contactes",null);
   if(AUTO&&S.uid)db.doc("acords/"+S.uid).onSnapshot(s=>{S.acord=s.exists?s.data():null;render()},()=>{S.acord=null;render()});
