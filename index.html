@@ -300,6 +300,12 @@ const currentDiv=()=>divisions().find(d=>d.id===S.div)||divisions()[0];
 const totesElims=()=>Object.values(S.calendari).flatMap(c=>(c.eliminatories||[]).map(f=>({...f,divisio:c.divisio})));
 const elim=id=>totesElims().find(f=>f.id===id);
 const nomEq=id=>S.equips[id]?.nom||id;
+/* Género por categoría: equips M- en masculí, F- en femení (jugador/jugadora, capità/capitana…). */
+const esF=id=>String(id||"").startsWith("F-");
+const gj=(id,pl)=>esF(id)?(pl?"jugadores":"jugadora"):(pl?"jugadors":"jugador");
+const gc=(id,pl)=>esF(id)?(pl?"capitanes":"capitana"):(pl?"capitans":"capità");
+const Jug=id=>esF(id)?"Jugadora":"Jugador";
+const unCap=id=>esF(id)?"una capitana":"un capità";
 const jugador=(eq,ordre)=>(S.equips[eq]?.jugadors||[]).find(j=>j.ordre===ordre);
 /* Nom + primer cognom (D61). Les partícules (De, Del, La, Van, Den…) s'ajunten al cognom: «Ana De La Mano». Si dos jugadors d'un equip quedessin igual, es mostra el nom sencer. */
 const PARTICULES=new Set(["de","del","della","di","da","dos","das","do","la","las","los","le","el","van","von","den","der","ten","ter","d'","l'"]);
@@ -310,10 +316,10 @@ function primerCognom(c){
 }
 /* D69: nom i llicència només els reben els participants (capitans i membres amb sessió); a la resta els jugadors són «Jugador/a N». */
 const teNom=j=>!!(j&&j.nom);
-const nomComplet=j=>teNom(j)?`${j.nom} ${j.cognoms}`.trim():`Jugador/a ${j.ordre}`;
-const nomCurtJ=j=>teNom(j)?`${j.nom} ${primerCognom(j.cognoms)}`.trim():`Jugador/a ${j.ordre}`;
+const nomComplet=(j,eq)=>teNom(j)?`${j.nom} ${j.cognoms}`.trim():`${Jug(eq)} ${j.ordre}`;
+const nomCurtJ=(j,eq)=>teNom(j)?`${j.nom} ${primerCognom(j.cognoms)}`.trim():`${Jug(eq)} ${j.ordre}`;
 function nomCurt(eq,j){
-  const nc=nomCurtJ(j); const rep=(S.equips[eq]?.jugadors||[]).filter(x=>nomCurtJ(x)===nc).length>1;
+  const nc=nomCurtJ(j,eq); const rep=(S.equips[eq]?.jugadors||[]).filter(x=>nomCurtJ(x,eq)===nc).length>1;
   return rep&&teNom(j)?`${j.nom} ${j.cognoms}`:nc;
 }
 const nomJug=(eq,o)=>{const j=jugador(eq,o);return j?nomCurt(eq,j):`#${o}`};
@@ -582,10 +588,10 @@ function omplirMembres(){
   if(av.length)body.append(el("div",{class:"warnlist"},el("strong",{text:"Dades a revisar"}),el("ul",{},...av.map(a=>el("li",{text:textAvis(a)})))));
   const tb=el("tbody");
   const noms=t.jugadors.some(teNom);
-  for(const p of t.jugadors)tb.append(el("tr",{"data-o":String(p.ordre)},el("td",{class:"num",text:p.ordre}),el("td",{text:nomComplet(p)}),...(noms?[el("td",{text:p.llicencia})]:[]),el("td",{class:"num",text:p.ranking==null?"—":p.ranking===9999?"s/r":p.ranking})));
-  if(!noms)body.append(el("p",{class:"note",id:"m-privat",text:"Els noms i les llicències dels jugadors només els veuen els participants de la lliga (capitans i membres dels equips) amb la sessió iniciada."}));
-  body.append(el("h3",{text:`Membres (${t.jugadors.length})`}),el("div",{class:"tablewrap"},el("table",{},el("thead",{},el("tr",{},el("th",{class:"num",text:"#"}),el("th",{text:"Jugador/a"}),...(noms?[el("th",{text:"Llicència"})]:[]),el("th",{class:"num",text:"Rànquing"}))),tb)),
-    el("p",{class:"note",text:`Rànquing total: ${sumaRanking(t)??"—"} (${jugadorsAmbRanking(t).length} jugadors amb rànquing). Ordre segons la classificació nacional en tancar la inscripció. s/r = sense rànquing (9999).`}));
+  for(const p of t.jugadors)tb.append(el("tr",{"data-o":String(p.ordre)},el("td",{class:"num",text:p.ordre}),el("td",{text:nomComplet(p,t.id)}),...(noms?[el("td",{text:p.llicencia})]:[]),el("td",{class:"num",text:p.ranking==null?"—":p.ranking===9999?"s/r":p.ranking})));
+  if(!noms)body.append(el("p",{class:"note",id:"m-privat",text:`Els noms i les llicències ${esF(t.id)?"de les jugadores":"dels jugadors"} només els veuen els participants de la lliga (${gc(t.id,1)} i membres dels equips) amb la sessió iniciada.`}));
+  body.append(el("h3",{text:`Membres (${t.jugadors.length})`}),el("div",{class:"tablewrap"},el("table",{},el("thead",{},el("tr",{},el("th",{class:"num",text:"#"}),el("th",{text:Jug(t.id)}),...(noms?[el("th",{text:"Llicència"})]:[]),el("th",{class:"num",text:"Rànquing"}))),tb)),
+    el("p",{class:"note",text:`Rànquing total: ${sumaRanking(t)??"—"} (${jugadorsAmbRanking(t).length} ${gj(t.id,1)} amb rànquing). Ordre segons la classificació nacional en tancar la inscripció. s/r = sense rànquing (9999).`}));
   const sc=dlgM.scrollTop; dlgM.replaceChildren(head,body); dlgM.scrollTop=sc;
 }
 /* Finestra amb una eliminatòria i el seu resultat, per obrir-la des d'una altra finestra sense sortir-ne (D68) */
@@ -683,7 +689,7 @@ async function enviaMembre(){
   const nom=(S.memNom||"").trim().replace(/\s+/g," ").slice(0,80);
   if(!S.memEq||!nom){S.memMsg={ok:false,text:"Tria l'equip i escriu el teu nom i cognoms (tal com surts a la llista de l'equip)."};render();return}
   const ok=await guardar(()=>S.db.doc("membres/"+S.uid).set({equip:S.memEq,nomDeclarat:nom,aprovat:false}),null);
-  S.memMsg=ok?{ok:true,text:"Sol·licitud enviada. L'ha d'aprovar un capità del teu equip."}:S.flash; S.flash=null; if(ok){S.memEq="";S.memNom=""} render();
+  S.memMsg=ok?{ok:true,text:`Sol·licitud enviada. L'ha d'aprovar ${unCap(S.memEq)} del teu equip.`}:S.flash; S.flash=null; if(ok){S.memEq="";S.memNom=""} render();
 }
 async function retiraMembre(u){
   const ok=await guardar(()=>S.db.doc("membres/"+u).delete(),null);
@@ -692,20 +698,20 @@ async function retiraMembre(u){
 async function aprovaMembre(u){
   const m=S.membres[u]; if(!m)return;
   const o=Number($("#mem-jug-"+u)?.value||0);
-  if(!o){S.memMsg={ok:false,text:"Tria a quin jugador/a de la llista correspon abans d'aprovar."};render();return}
+  if(!o){S.memMsg={ok:false,text:`Tria ${esF(m.equip)?"a quina jugadora":"a quin jugador"} de la llista correspon abans d'aprovar.`};render();return}
   const ok=await guardar(()=>S.db.doc("membres/"+u).set({...m,jugador:o,aprovat:true}),null);
   S.memMsg=ok?{ok:true,text:"Membre aprovat."}:S.flash; S.flash=null; render();
 }
-const nomJugadorMembre=(eq,o)=>{const j=jugador(eq,o);return j?nomComplet(j):o==null?"jugador/a pendent d'assignar":`#${o}`};
+const nomJugadorMembre=(eq,o)=>{const j=jugador(eq,o);return j?nomComplet(j,eq):o==null?`${gj(eq)} pendent d'assignar`:`#${o}`};
 function renderMembre(box){
   box.append(el("h3",{class:"divtit",text:"Soc membre d'un equip"}));
-  box.append(el("p",{class:"note",text:"Si jugues en un equip, demana-ho aquí: tria l'equip i escriu el teu nom i cognoms. Un capità de l'equip ho ha d'aprovar i t'assignarà el teu lloc a la llista (la llista de jugadors és privada: només la veuen els participants). Els membres veuen les estadístiques del seu equip, però no poden enviar actes ni preparar alineacions."}));
+  box.append(el("p",{class:"note",text:"Si jugues en un equip, demana-ho aquí: tria l'equip i escriu el teu nom i cognoms. Un capità o una capitana de l'equip ho ha d'aprovar i t'assignarà el teu lloc a la llista (la llista de jugadors és privada: només la veuen els participants). Els membres veuen les estadístiques del seu equip, però no poden enviar actes ni preparar alineacions."}));
   if(S.memMsg)box.append(el("div",{class:S.memMsg.ok?"oklist":"errlist",text:S.memMsg.text}));
   const m=S.membres[S.uid];
   if(m){
     box.append(el("div",{class:"card",id:"memMeu"},el("div",{class:"body"},
       el("strong",{text:`${nomEq(m.equip)} · ${m.aprovat?nomJugadorMembre(m.equip,m.jugador):(m.nomDeclarat||"")}`}),
-      el("p",{text:m.aprovat?"Aprovat: ja pots veure les estadístiques del teu equip.":"Pendent d'aprovació d'un capità del teu equip."}),
+      el("p",{text:m.aprovat?"Aprovat: ja pots veure les estadístiques del teu equip.":`Pendent d'aprovació d'${unCap(m.equip)} del teu equip.`}),
       el("div",{class:"actions"},el("button",{class:"btn sec",type:"button",id:"memRetira",text:m.aprovat?"Dona'm de baixa":"Retira la sol·licitud",onclick:()=>retiraMembre(S.uid)})))));
     return;
   }
@@ -713,7 +719,7 @@ function renderMembre(box){
   for(const d of divisions()){const og=el("optgroup",{label:d.nom});for(const id of d.equips)og.append(el("option",{value:id,text:nomEq(id)}));if(og.children.length)sel.append(og)}
   sel.value=S.memEq;
   const nomI=el("input",{type:"text",id:"memNom",maxlength:"80",autocomplete:"name",placeholder:"El teu nom i cognoms","aria-label":"El teu nom i cognoms",value:S.memNom||"",oninput:e=>{S.memNom=e.target.value}});
-  box.append(el("div",{class:"card"},el("div",{class:"body"},el("strong",{text:"Soc jugador/a de…"}),el("div",{class:"filtre"},sel),nomI,
+  box.append(el("div",{class:"card"},el("div",{class:"body"},el("strong",{text:S.memEq?`Soc ${gj(S.memEq)} de…`:"Soc jugador o jugadora de…"}),el("div",{class:"filtre"},sel),nomI,
     el("div",{class:"actions"},el("button",{class:"btn",type:"button",id:"memEnvia",text:"Envia la sol·licitud",onclick:enviaMembre})))));
 }
 /* Gestió dels membres d'uns equips (capitans: els seus; administrador: tots) */
@@ -724,7 +730,7 @@ function renderGestioMembres(box,eqs){
   for(const eq of amb){
     const ul=el("ul",{class:"caps"});
     for(const m of membresEquip(eq).sort((a,b)=>(a.aprovat===b.aprovat?0:a.aprovat?1:-1)||(a.jugador||0)-(b.jugador||0))){
-      const selJ=m.aprovat?null:el("select",{id:"mem-jug-"+m.uid,"aria-label":`Jugador/a de ${m.nomDeclarat||"la sol·licitud"}`},el("option",{value:"",text:"Quin jugador/a és?"}),
+      const selJ=m.aprovat?null:el("select",{id:"mem-jug-"+m.uid,"aria-label":`${Jug(eq)} de ${m.nomDeclarat||"la sol·licitud"}`},el("option",{value:"",text:esF(eq)?"Quina jugadora és?":"Quin jugador és?"}),
         ...(S.equips[eq]?.jugadors||[]).filter(j=>!Object.values(S.membres).some(x=>x.equip===eq&&x.aprovat&&x.jugador===j.ordre)).map(j=>el("option",{value:String(j.ordre),text:`${j.ordre}. ${nomComplet(j)}`})));
       ul.append(el("li",{id:"mem-"+m.uid},el("span",{text:`${m.aprovat?nomJugadorMembre(eq,m.jugador):"Sol·licitud: "+(m.nomDeclarat||"")}${m.email?" ("+m.email+")":""} · ${m.aprovat?"membre":"pendent"}`}),
         ...(m.aprovat?[]:[selJ,el("button",{class:"btn",type:"button",id:"mem-aprova-"+m.uid,text:"Aprova",onclick:()=>aprovaMembre(m.uid)})]),
@@ -794,7 +800,7 @@ function renderRols(box){
         }});
       box.append(el("div",{class:"card"},el("div",{class:"body"},
         el("strong",{text:t.nom}),
-        el("div",{class:"note",text:`Capità/ana segons l'FCT: ${t.capitans.join(" / ")||"—"}`}),
+        el("div",{class:"note",text:`${esF(t.id)?"Capitana":"Capità"} segons l'FCT: ${t.capitans.join(" / ")||"—"}`}),
         llista,...(S.user?.search?[cerca,res]:[]))));
     }
   }
@@ -916,14 +922,14 @@ function renderEstadistiques(box){
   const files=(t?.jugadors||[]).map(j=>({...buit,...(per[j.ordre]||{}),ordre:j.ordre,nom:nomCurt(eq,j)}))
     .sort((a,b)=>k==="ordre"?a.ordre-b.ordre:((b[k]??-1)-(a[k]??-1))||b.pj-a.pj||a.ordre-b.ordre);
   const jugats=st.jugadors.filter(j=>j.pj>0).length;
-  box.append(el("h2",{text:`Jugadors (${jugats} amb partits)`,style:"margin-top:18px"}));
+  box.append(el("h2",{text:`${esF(eq)?"Jugadores":"Jugadors"} (${jugats} amb partits)`,style:"margin-top:18px"}));
   const th=(...c)=>el("tr",{},...c.map(x=>el("th",{text:x})));
   const tb=el("tbody");
   for(const r of files)tb.append(el("tr",{},el("td",{class:esJugadorMeu(eq,r.ordre)?"propi":""},el("button",{type:"button",class:"nomjug","data-o":String(r.ordre),"aria-haspopup":"dialog",onclick:()=>obreJugador(eq,r.ordre),text:`${r.ordre}. ${r.nom}`})),el("td",{class:"num",text:r.pj}),el("td",{class:"num",text:`${r.pg}-${r.pp}`}),
     el("td",{class:"num",text:pct(r.pctPartits)}),el("td",{class:"num",text:pct(r.pctJocs)}),el("td",{class:"num",text:`${r.setsG}-${r.setsP}`}),el("td",{class:"num",text:`${r.jocsG}-${r.jocsP}`}),
     el("td",{class:"num",text:r.mtbJ?`${r.mtbG}/${r.mtbJ}`:"—"}),el("td",{class:"num",text:r.woG||r.woP?`${r.woG}/${r.woP}`:"—"}),
     el("td",{text:[1,2,3].map(n=>`T${n} ${r.torns[n].pg}-${r.torns[n].pp}`).join(" · ")}),el("td",{class:"num",text:r.elims}),el("td",{text:r.ultims.join(" ")||"—"})));
-  box.append(el("div",{class:"card tablewrap"},el("table",{id:"taulaJugadors"},el("thead",{},th("Jugador/a","PJ","G-P","% part.","% jocs","Sets","Jocs","MTB (G/J)","WO (F/C)","Per torn (G-P)","Elim.","Últims 5")),tb)));
+  box.append(el("div",{class:"card tablewrap"},el("table",{id:"taulaJugadors"},el("thead",{},th(Jug(eq),"PJ","G-P","% part.","% jocs","Sets","Jocs","MTB (G/J)","WO (F/C)","Per torn (G-P)","Elim.","Últims 5")),tb)));
   box.append(el("p",{class:"note",text:"PJ: partits disputats. MTB: match tie-breaks guanyats sobre jugats. WO: partits guanyats (F) o perduts (C) per incompareixença, sense comptar a l'efectivitat. Elim.: eliminatòries en què ha jugat. Últims 5: G guanyat, P perdut (del més antic al més recent)."}));
   const ps=[...st.parelles].sort((a,b)=>b.pj-a.pj||(b.pctPartits??-1)-(a.pctPartits??-1));
   box.append(el("h2",{text:`Parelles (${ps.length})`,style:"margin-top:18px"}));
@@ -944,7 +950,7 @@ function omplirJugador(){
   const st=E.estadistiquesJugadors(eq,totesElims(),S.validades);
   const r={pj:0,pg:0,pp:0,setsG:0,setsP:0,jocsG:0,jocsP:0,mtbJ:0,mtbG:0,woG:0,woP:0,retirades:0,elims:0,ultims:[],torns:{1:{pg:0,pp:0},2:{pg:0,pp:0},3:{pg:0,pp:0}},pctPartits:null,pctJocs:null,...(st.jugadors.find(x=>x.ordre===ordre)||{})};
   const head=el("div",{class:"dhead"},el("div",{},el("h2",{id:"dlgJugTit",text:`${j.nom} ${j.cognoms}`}),
-    el("p",{text:`${nomEq(eq)} · jugador/a ${ordre}${j.ranking==null||j.ranking===9999?"":" · rànquing "+j.ranking}`})),
+    el("p",{text:`${nomEq(eq)} · ${gj(eq)} ${ordre}${j.ranking==null||j.ranking===9999?"":" · rànquing "+j.ranking}`})),
     el("button",{class:"dclose",type:"button",id:"j-tanca",text:"Tanca",onclick:()=>dlgJ2.close()}));
   const body=el("div",{class:"dbody"});
   const fila=(k,v)=>el("tr",{},el("th",{text:k}),el("td",{class:"num",text:v}));
@@ -968,8 +974,8 @@ function renderAlineacions(box){
   if(!eqs.includes(S.alEquip))S.alEquip=eqs[0];
   const eq=S.alEquip;
   box.append(el("h2",{text:`Alineacions · ${nomEq(eq)}`}));
-  box.append(el("div",{class:"warnlist",id:"al-privat"},el("strong",{text:"Les alineacions són privades per a cada capità"}),
-    el("p",{text:"Només les veus tu. No les poden consultar ni els altres capitans o membres del teu equip ni l'administrador de la lliga (tampoc si l'administrador és membre del teu equip)."})));
+  box.append(el("div",{class:"warnlist",id:"al-privat"},el("strong",{text:`Les alineacions són privades per a cada ${gc(eq)}`}),
+    el("p",{text:`Només les veus tu. No les poden consultar ni ${esF(eq)?"les altres capitanes":"els altres capitans"} o membres del teu equip ni l'administrador de la lliga (tampoc si l'administrador és membre del teu equip).`})));
   if(eqs.length>1){const sel=el("select",{id:"alEquip","aria-label":"Equip",onchange:e=>{S.alEquip=e.target.value;S.plan=null;render()}},...eqs.map(id=>el("option",{value:id,text:nomEq(id)})));sel.value=eq;box.append(el("div",{class:"actions"},sel))}
   renderPlanificador(box,eq,E.estadistiquesJugadors(eq,totesElims(),S.validades));
 }
@@ -985,20 +991,20 @@ function renderPlanificador(box,eq,st){
   se.value=plan.eliminatoria||""; body.append(el("div",{class:"field"},el("label",{for:"al-elim",text:"Eliminatòria"}),se));
   const roster=S.equips[eq]?.jugadors||[];
   const quitaDeTorns=o=>{for(const tn of plan.torns)for(const pa of tn)for(let i=0;i<2;i++)if(pa[i]===o)pa[i]=null};
-  const asBox=el("div",{class:"field",id:"al-assist"},el("strong",{text:`Jugadors que assisteixen (${plan.assist.length})`}));
+  const asBox=el("div",{class:"field",id:"al-assist"},el("strong",{text:`${esF(eq)?"Jugadores":"Jugadors"} que assisteixen (${plan.assist.length})`}));
   const asList=el("div",{class:"chips"});
   for(const j of roster){const on=plan.assist.includes(j.ordre);
     asList.append(el("label",{class:"chip"+(on?" slot ple":" slot")},el("input",{type:"checkbox",id:"al-as-"+j.ordre,checked:on,onchange:e=>{
       if(e.target.checked)plan.assist=[...plan.assist,j.ordre].sort((x,y)=>x-y); else{plan.assist=plan.assist.filter(o=>o!==j.ordre);quitaDeTorns(j.ordre)} render()}}),el("span",{text:` ${j.ordre}. ${nomCurt(eq,j)}`})));}
   asBox.append(asList); body.append(asBox);
-  if(!plan.assist.length)body.append(el("p",{class:"note",id:"al-sense",text:"Marca almenys els jugadors que assisteixen per poder formar els torns."}));
+  if(!plan.assist.length)body.append(el("p",{class:"note",id:"al-sense",text:`Marca almenys ${esF(eq)?"les jugadores":"els jugadors"} que assisteixen per poder formar els torns.`}));
   for(let t=0;t<3;t++){
     const row=el("div",{class:"field",id:"al-torn-"+t},el("strong",{text:`Torn ${t+1}`}));
     const usats=new Set(plan.torns[t].flat().filter(o=>o!=null));
     for(let k=0;k<2;k++){
       const pos=E.PARTITS[2*t+k][costat].join("/"); const g=el("div",{class:"chips"},el("span",{class:"note",text:`Parella ${pos}:`}));
       for(let i=0;i<2;i++){const o=plan.torns[t][k][i], j=o==null?null:roster.find(x=>x.ordre===o);
-        g.append(el("button",{type:"button",class:"chip slot"+(j?" ple":""),id:`al-t${t}-${k}-${i}`,"aria-label":`Torn ${t+1}, parella ${pos}, jugador ${i+1}${j?": "+nomCurt(eq,j)+" (toca per treure'l)":": buit"}`,
+        g.append(el("button",{type:"button",class:"chip slot"+(j?" ple":""),id:`al-t${t}-${k}-${i}`,"aria-label":`Torn ${t+1}, parella ${pos}, ${gj(eq)} ${i+1}${j?": "+nomCurt(eq,j)+" (toca per treure'l)":": buit"}`,
           text:j?`${nomCurt(eq,j)} ✕`:"—",disabled:!j,onclick:()=>{plan.torns[t][k][i]=null;render()}}))}
       row.append(g);
     }
@@ -1148,12 +1154,12 @@ function renderActaView(box){
   const esb=potEnviar(f)?esborranyPer(f):null;
   if(esb){
     box.append(el("div",{class:"warnlist",id:"esb-trobat"},el("strong",{text:"Hi ha un esborrany d'aquesta acta"}),
-      ` desat ${esb.per?(esb.per===S.uid?"per tu":"per un altre capità de l'equip"):"en aquest dispositiu"} el ${dataHora(esb.t)}. Encara no compta per a res.`));
+      ` desat ${esb.per?(esb.per===S.uid?"per tu":`per ${esF(f.local)?"una altra capitana":"un altre capità"} de l'equip`):"en aquest dispositiu"} el ${dataHora(esb.t)}. Encara no compta per a res.`));
     acts.append(el("button",{class:"btn",type:"button",id:"b-continua",text:"Continua l'esborrany",onclick:()=>{
       S.draft=draftDesDeEsborrany(f,esb); S.draft.esbCarregat=`Esborrany carregat (desat el ${dataHora(esb.t)}).`; render(); if(esb.local)programaEsb()}}));
-    acts.append(el("button",{class:"btn danger",type:"button",id:"b-nou",text:"Comença de nou",onclick:()=>confirmar(box,"S'esborrarà l'esborrany per a tots els capitans de l'equip local i començaràs una acta en blanc.",async()=>{await descartaEsb(f);S.draft={...actaBuida(f),mode:"enviament",presel:{L:[],V:[]}}})}));
+    acts.append(el("button",{class:"btn danger",type:"button",id:"b-nou",text:"Comença de nou",onclick:()=>confirmar(box,`S'esborrarà l'esborrany per a tot${esF(f.local)?"es les capitanes":"s els capitans"} de l'equip local i començaràs una acta en blanc.`,async()=>{await descartaEsb(f);S.draft={...actaBuida(f),mode:"enviament",presel:{L:[],V:[]}}})}));
   }
-  if(!window.LCTP_PUBLIC&&!potEnviar(f)&&!S.admin)box.append(el("p",{class:"note",text:`L'acta la envia el capità o la capitana de l'equip local (${nomEq(f.local)}).`}));
+  if(!window.LCTP_PUBLIC&&!potEnviar(f)&&!S.admin)box.append(el("p",{class:"note",text:`L'acta l'envia ${esF(f.local)?"la capitana":"el capità"} de l'equip local (${nomEq(f.local)}).`}));
   if(potEnviar(f)&&!esb)acts.append(el("button",{class:"btn",type:"button",text:"Introduir l'acta",onclick:()=>{S.draft={...actaBuida(f),mode:"enviament",presel:{L:[],V:[]}};render()}}));
   if(S.admin)acts.append(el("button",{class:"btn sec",type:"button",text:"Registrar WO d'equip",onclick:()=>renderWO(box,f)}));
   box.append(acts);
@@ -1262,7 +1268,7 @@ function programaEsb(){
 async function desaEsb(){
   clearTimeout(tmrEsb); const d=S.draft; if(!esbActiu(d))return;
   const f=elim(d.eliminatoria), doc=docEsb(d), t=Date.now(); esbEscriuLocal(f,doc,t);
-  try{await S.db.doc("esborranys/"+f.id).set(doc);S.esbReintent=false;pintaEsb(`Esborrany desat a les ${hora(t)}. Els capitans de l'equip local el poden continuar.`)}
+  try{await S.db.doc("esborranys/"+f.id).set(doc);S.esbReintent=false;pintaEsb(`Esborrany desat a les ${hora(t)}. ${esF(f.local)?"Les capitanes":"Els capitans"} de l'equip local el poden continuar.`)}
   catch(e){S.esbReintent=true;pintaEsb("Sense connexió: l'esborrany s'ha desat en aquest dispositiu i es tornarà a provar.")}
 }
 async function descartaEsb(f){
@@ -1317,7 +1323,7 @@ function pintaTorns(){
 function renderPresel(form,f,d){
   const R=rosters(f), card=el("div",{class:"card",id:"presel"},el("div",{class:"body"}));
   card.firstChild.append(el("h3",{text:"Jugadors de la jornada",style:"margin-top:0"}),
-    el("p",{class:"note",text:"Marca els jugadors de cada equip que participen a l'eliminatòria (la relació que es lliura al capità rival; mínim 3 per equip). Als torns només podràs triar entre ells."}));
+    el("p",{class:"note",text:`Marca ${esF(f.local)?"les jugadores":"els jugadors"} de cada equip que participen a l'eliminatòria (la relació que es lliura ${esF(f.local)?"a la capitana rival":"al capità rival"}; mínim 3 per equip). Als torns només podràs triar entre ${esF(f.local)?"elles":"ells"}.`}));
   const av=el("p",{class:"note",id:"pre-av",role:"status"});
   const sides=el("div",{class:"sides"});
   for(const c of["L","V"]){
@@ -1428,7 +1434,7 @@ function obreTorn(t){
   const cont=el("div",{class:"body"}), caixes=[];
   const refresca=()=>caixes.forEach(b=>b._pinta.forEach(fn=>fn()));
   cont.append(el("h2",{id:"dlgTornTit",text:`Torn ${t+1}`,style:"margin-top:0"}),
-    el("p",{class:"note",text:`${nomEq(f.local)} (local) – ${nomEq(f.visitant)} (visitant). Toca els dos jugadors de cada parella i anota el resultat; es desa tot sol.`}));
+    el("p",{class:"note",text:`${nomEq(f.local)} (local) – ${nomEq(f.visitant)} (visitant). Toca ${esF(f.local)?"les dues jugadores":"els dos jugadors"} de cada parella i anota el resultat; es desa tot sol.`}));
   [2*t,2*t+1].forEach(i=>{const b=partitControls(f,d,i,refresca);caixes.push(b);cont.append(b)});
   cont.append(el("div",{class:"actions"},
     el("button",{class:"btn",type:"button",id:"b-tanca-torn",text:"Acaba",onclick:()=>dlgT.close()}),
@@ -1446,7 +1452,7 @@ function renderForm(box,f){
   const titol=d.mode==="correccio"?"Correcció de l'acta validada":"Acta de resultats";
   box.append(el("h2",{text:titol,style:"margin-top:8px"}));
   box.append(el("p",{class:"note",text:"Mateixes dades que l'acta oficial: parelles de cada torn i resultat de cada partit. Equip A = local, equip B = visitant."}));
-  if(esbActiu(d))box.append(el("div",{class:"warnlist",id:"esb-av"},el("strong",{text:"Esborrany: "}),"es va desant tot sol i el pots continuar més tard, des d'aquest mòbil o un altre, o un altre capità de l'equip local. No compta per a res fins que l'enviïs."));
+  if(esbActiu(d))box.append(el("div",{class:"warnlist",id:"esb-av"},el("strong",{text:"Esborrany: "}),`es va desant tot sol i el pots continuar més tard, des d'aquest mòbil o un altre, o ${esF(f.local)?"una altra capitana":"un altre capità"} de l'equip local. No compta per a res fins que l'enviïs.`));
   if(d.lectura)box.append(el("div",{class:"warnlist",id:"lectura-av"},el("strong",{text:"Acta llegida automàticament: comprova-ho tot amb la foto abans d'enviar-la."}),
     d.lectura.dubtes.length?el("ul",{},...d.lectura.dubtes.map(t=>el("li",{text:t}))):el("p",{class:"note",text:"No ha marcat cap dubte, però la lectura pot tenir errors."})));
   const form=el("form",{novalidate:true,onsubmit:e=>e.preventDefault()});
@@ -1486,7 +1492,7 @@ function renderForm(box,f){
   }
   if(esbActiu(d))acts.append(el("button",{class:"btn sec",type:"button",id:"b-esb",text:"Desa l'esborrany",onclick:()=>desaEsb()}));
   acts.append(el("button",{class:"btn sec",type:"button",id:"b-cancel",text:esbActiu(d)?"Tanca (l'esborrany queda desat)":"Cancel·lar",onclick:async()=>{if(esbActiu(S.draft))await desaEsb();S.draft=null;S.editing=false;S.flash=null;render()}}));
-  if(esbActiu(d)&&(S.esborranys[f.id]||esbLocal(f)))acts.append(el("button",{class:"btn danger",type:"button",id:"b-descarta",text:"Descarta l'esborrany",onclick:()=>confirmar(box,"S'esborrarà l'esborrany per a tots els capitans de l'equip local.",async()=>{await descartaEsb(f);S.draft=null;S.editing=false})}));
+  if(esbActiu(d)&&(S.esborranys[f.id]||esbLocal(f)))acts.append(el("button",{class:"btn danger",type:"button",id:"b-descarta",text:"Descarta l'esborrany",onclick:()=>confirmar(box,`S'esborrarà l'esborrany per a tot${esF(f.local)?"es les capitanes":"s els capitans"} de l'equip local.`,async()=>{await descartaEsb(f);S.draft=null;S.editing=false})}));
   form.append(acts);
   box.append(form);
   pintaTorns(); actualitzaResum();
@@ -1519,7 +1525,7 @@ async function guardar(fn,okText){
   finally{S.busy=false}
 }
 async function desar(f,mode){
-  if(mode!=="correccio"&&!potEnviar(f)){S.flash={ok:false,text:"Només el capità de l'equip local pot enviar aquesta acta."};render();return}
+  if(mode!=="correccio"&&!potEnviar(f)){S.flash={ok:false,text:`Només ${esF(f.local)?"la capitana":"el capità"} de l'equip local pot enviar aquesta acta.`};render();return}
   const a=normalitza(S.draft);
   const chk=E.validarActa(a,rosters(f)); if(chk.errors.length)return;
   const ara=new Date().toISOString();
