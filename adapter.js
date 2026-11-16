@@ -44,6 +44,8 @@
       id: r.eliminatoria, data: { ...r.data, eliminatoria: r.eliminatoria, estat: r.estat, ...(r.motiu ? { motiu: r.motiu } : {}), enviadaPer: r.enviada_per, enviadaAt: r.enviada_at } }));
     if (nom === "solicituds") return ck(await sb.from("solicituds").select("user_id,equips,nom_declarat,enviat_at,email")).map(r => ({
       id: r.user_id, data: { equips: r.equips, nomDeclarat: r.nom_declarat, enviatAt: r.enviat_at, email: r.email } }));
+    if (nom === "alineacions") return ck(await sb.from("alineacions").select("id,equip,eliminatoria,nom,data,updated_at").order("updated_at", { ascending: false })).map(r => ({
+      id: r.id, data: { ...r.data, equip: r.equip, eliminatoria: r.eliminatoria, nom: r.nom, updatedAt: r.updated_at } }));
     throw new Error("col·lecció desconeguda: " + nom);
   }
   async function llegeixRols() {
@@ -86,11 +88,13 @@
       eliminatoria: id, local: "", estat: d.estat || "pendent", motiu: d.motiu || null,
       data: treu({ ...d, ...(d.arxiu ? { arxiu: treu(d.arxiu, ["url"]) } : {}) }, ["estat", "motiu", "enviadaAt", "enviadaPer", "eliminatoria"]) }, { onConflict: "eliminatoria" }));
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
+    if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
+      data: treu(d, ["equip", "eliminatoria", "nom", "updatedAt"]) }, { onConflict: "id" }));
     throw new Error("escriptura no permesa: " + path);
   }
   async function esborra(path) {
     const [c, id] = path.split("/");
-    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"] }[c];
+    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"] }[c];
     if (!t) throw new Error("esborrat no permès: " + path);
     ck(await sb.from(t[0]).delete().eq(t[1], id));
   }

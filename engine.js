@@ -288,7 +288,80 @@
     return { dataJoc, partits, dubtes };
   }
 
-  const api = { PARTITS, ESTATS, etiqueta, setValid, mtbValid, resultatPartit, validarActa, resultatEliminatoria, estadistiques, desempatar, sanejaLectura, explicacioEmpat, detallEquip, classificacio };
+
+  /* ---------- Estadístiques de jugadors i parelles d'un equip (D62) ----------
+   * Només compten els partits disputats (jugat o retirada). Els WO de parella (incompareixença, equip amb 3 jugadors)
+   * es compten a part (woG / woP) i els WO d'equip no tenen jugadors. Efectivitat = % de partits guanyats i % de jocs guanyats.
+   * El match tie-break compta com a set però no com a joc (D2). */
+  function estadistiquesJugadors(equip, fixtures, validades) {
+    const nou = (extra) => ({ pj: 0, pg: 0, pp: 0, setsG: 0, setsP: 0, jocsG: 0, jocsP: 0, mtbJ: 0, mtbG: 0, ...extra });
+    const jug = {}, par = {};
+    const J = (o) => jug[o] || (jug[o] = nou({ ordre: o, woG: 0, woP: 0, retirades: 0, elims: new Set(), torns: { 1: { pg: 0, pp: 0 }, 2: { pg: 0, pp: 0 }, 3: { pg: 0, pp: 0 } }, seq: [] }));
+    const P = (a, b) => { const k = [a, b].sort((x, y) => x - y); const key = k.join("-"); return par[key] || (par[key] = nou({ jugadors: k, key, elims: new Set(), seq: [] })); };
+    const suma = (x, r) => { x.pj++; r.g ? x.pg++ : x.pp++; x.setsG += r.sG; x.setsP += r.sP; x.jocsG += r.jG; x.jocsP += r.jP; if (r.mtb) { x.mtbJ++; if (r.mtbG) x.mtbG++; } };
+    const fs = fixtures.filter((f) => (f.local === equip || f.visitant === equip) && validades[f.id] && validades[f.id].tipus !== "wo_equip" && Array.isArray(validades[f.id].partits))
+      .sort((a, b) => String(validades[a.id].dataJoc || a.data).localeCompare(String(validades[b.id].dataJoc || b.data)) || a.jornada - b.jornada);
+    for (const f of fs) {
+      const v = validades[f.id], c = f.local === equip ? "L" : "V", o = c === "L" ? "V" : "L";
+      v.partits.forEach((p, i) => {
+        const ids = (Array.isArray(p[c]) ? p[c] : []).filter((x) => x != null);
+        if (p.estat === "wo_" + c) { ids.forEach((x) => J(x).woP++); return; }
+        if (p.estat === "wo_" + o) { ids.forEach((x) => J(x).woG++); return; }
+        if (ids.length !== 2 || ids[0] === ids[1]) return;
+        const x = resultatPartit(p), s = p.sets || [];
+        const r = { g: x.guanya === c, sG: c === "L" ? x.setsL : x.setsV, sP: c === "L" ? x.setsV : x.setsL, jG: c === "L" ? x.jocsL : x.jocsV, jP: c === "L" ? x.jocsV : x.jocsL,
+          mtb: s.length === 3, mtbG: s.length === 3 && (c === "L" ? s[2][0] > s[2][1] : s[2][1] > s[2][0]) };
+        const torn = PARTITS[i] ? PARTITS[i].torn : null;
+        for (const id of ids) {
+          const j = J(id); suma(j, r); j.elims.add(f.id); j.seq.push(r.g ? "G" : "P");
+          if (torn) r.g ? j.torns[torn].pg++ : j.torns[torn].pp++;
+          if (p.estat === "retirada_" + c) j.retirades++;
+        }
+        const pp = P(ids[0], ids[1]); suma(pp, r); pp.elims.add(f.id); pp.seq.push(r.g ? "G" : "P");
+      });
+    }
+    const fin = (x) => { const t = x.jocsG + x.jocsP; const { elims, seq, ...rest } = x;
+      return { ...rest, elims: elims.size, ultims: seq.slice(-5), pctPartits: x.pj ? x.pg / x.pj : null, pctJocs: t ? x.jocsG / t : null }; };
+    return { jugadors: Object.values(jug).map(fin).sort((a, b) => a.ordre - b.ordre), parelles: Object.values(par).map(fin) };
+  }
+
+  /* Avalua una alineació per preparar una eliminatòria (D62). costat: "L" o "V"; torns: [[parellaA, parellaB] x 3], parella = [ordre, ordre] (pot tenir buits).
+   * Retorna errors (els mateixos que l'acta: jugador repetit en un torn, parella repetida, parella amb el mateix jugador), avisos (ordre de classificació)
+   * i l'historial de cada parella i jugador amb un resum agregat de les parelles amb historial. */
+  function avaluaAlineacio(costat, torns, stats) {
+    const errors = [], avisos = [], files = [], vistes = new Set();
+    const pj = {}; (stats.parelles || []).forEach((p) => { pj[p.key] = p; });
+    const jj = {}; (stats.jugadors || []).forEach((j) => { jj[j.ordre] = j; });
+    for (let t = 0; t < 3; t++) {
+      const [a, b] = (torns[t] || [[], []]).map((x) => (x || []).filter((y) => y != null && y !== ""));
+      [a, b].forEach((pa, k) => {
+        const esp = PARTITS[2 * t + k][costat];
+        if (pa.length === 2 && pa[0] === pa[1]) errors.push(`Torn ${t + 1}: la parella ${etiqueta(esp)} té el mateix jugador dos cops.`);
+        if (pa.length === 2 && pa[0] !== pa[1]) {
+          const key = [...pa].sort((x, y) => x - y).join("-");
+          if (vistes.has(key)) errors.push(`Torn ${t + 1}: la parella ${key.replace("-", " i ")} ja juga en un altre torn (no es pot repetir parella).`);
+          vistes.add(key);
+          files.push({ torn: t + 1, posicio: etiqueta(esp), jugadors: pa, historial: pj[key] || null, individual: pa.map((o) => jj[o] || null) });
+        } else files.push({ torn: t + 1, posicio: etiqueta(esp), jugadors: pa, historial: null, individual: pa.map((o) => jj[o] || null), incompleta: true });
+      });
+      if (a.length === 2 && b.length === 2) {
+        if (a.some((x) => b.includes(x))) errors.push(`Torn ${t + 1}: un jugador juga els dos partits del torn.`);
+        else {
+          const quatre = [...a, ...b].sort((x, y) => x - y), pos = (o) => quatre.indexOf(o) + 1;
+          const ok = (pa, esp) => [...pa].map(pos).sort().join() === [...esp].sort().join();
+          if (!ok(a, PARTITS[2 * t][costat]) || !ok(b, PARTITS[2 * t + 1][costat]))
+            avisos.push(`Torn ${t + 1}: les parelles no segueixen l'ordre de classificació (${etiqueta(PARTITS[2 * t][costat])} i ${etiqueta(PARTITS[2 * t + 1][costat])}).`);
+        }
+      }
+    }
+    const amb = files.filter((f) => f.historial && f.historial.pj > 0);
+    const sum = amb.reduce((r, f) => ({ pj: r.pj + f.historial.pj, pg: r.pg + f.historial.pg, jG: r.jG + f.historial.jocsG, jP: r.jP + f.historial.jocsP }), { pj: 0, pg: 0, jG: 0, jP: 0 });
+    const resum = { parellesAmbHistorial: amb.length, completes: files.filter((f) => !f.incompleta).length,
+      pctPartits: sum.pj ? sum.pg / sum.pj : null, pctJocs: sum.jG + sum.jP ? sum.jG / (sum.jG + sum.jP) : null, pj: sum.pj };
+    return { errors, avisos, files, resum };
+  }
+
+  const api = { PARTITS, ESTATS, etiqueta, setValid, mtbValid, resultatPartit, validarActa, resultatEliminatoria, estadistiques, desempatar, sanejaLectura, explicacioEmpat, detallEquip, classificacio, estadistiquesJugadors, avaluaAlineacio };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LligaEngine = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

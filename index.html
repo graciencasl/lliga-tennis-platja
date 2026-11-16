@@ -191,6 +191,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <a href="#validacio" data-view="validacio" id="tabValidacio" hidden>Validació</a>
     <a href="#rols" data-view="rols" id="tabRols" hidden>Rols</a>
     <a href="#capita" data-view="capita" id="tabCapita" hidden>Soc capità/ana</a>
+    <a href="#estadistiques" data-view="estadistiques" id="tabEstad" hidden>Estadístiques</a>
     <a href="#avisos" data-view="avisos" id="tabAvisos" hidden>Avisos</a>
   </nav>
   <div class="divs" id="divPicker" hidden>
@@ -219,7 +220,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 const E=window.LligaEngine;
 const MESOS=["gener","febrer","març","abril","maig","juny","juliol","agost","setembre","octubre","novembre","desembre"];
 const deMes=m=>(/^[aeiou]/.test(m)?"d'":"de ")+m;
-const S={lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
+const S={alineacions:{},lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
   admin:false,canWrite:null,db:null,assets:null,sample:null,imgOk:false,llegint:false,uid:null,user:null,rols:null,sol:{},meva:null,capSel:[],capNom:"",capMsg:null,noms:{},rolsMsg:null,cerca:{},filtre:(()=>{try{return localStorage.getItem("lctp.filtre")||""}catch(e){return ""}})(),
   loaded:{lliga:false,equips:false,calendari:false,validades:false},timeout:false,error:null,noDb:false,
   draft:null,editing:false,flash:null,busy:false,sorteigObert:null,equipObert:null,
@@ -245,7 +246,19 @@ const totesElims=()=>Object.values(S.calendari).flatMap(c=>(c.eliminatories||[])
 const elim=id=>totesElims().find(f=>f.id===id);
 const nomEq=id=>S.equips[id]?.nom||id;
 const jugador=(eq,ordre)=>(S.equips[eq]?.jugadors||[]).find(j=>j.ordre===ordre);
-const nomJug=(eq,o)=>{const j=jugador(eq,o);return j?`${j.nom} ${j.cognoms}`:`#${o}`};
+/* Nom + primer cognom (D61). Les partícules (De, Del, La, Van, Den…) s'ajunten al cognom: «Ana De La Mano». Si dos jugadors d'un equip quedessin igual, es mostra el nom sencer. */
+const PARTICULES=new Set(["de","del","della","di","da","dos","das","do","la","las","los","le","el","van","von","den","der","ten","ter","d'","l'"]);
+function primerCognom(c){
+  const t=String(c||"").trim().split(/\s+/).filter(Boolean); if(!t.length)return "";
+  let r=t[0], i=1; while(i<t.length&&PARTICULES.has(t[i-1].toLowerCase().replace(/[´`’]/g,"'")))r+=" "+t[i++];
+  return r;
+}
+const nomCurtJ=j=>`${j.nom} ${primerCognom(j.cognoms)}`.trim();
+function nomCurt(eq,j){
+  const nc=nomCurtJ(j); const rep=(S.equips[eq]?.jugadors||[]).filter(x=>nomCurtJ(x)===nc).length>1;
+  return rep?`${j.nom} ${j.cognoms}`:nc;
+}
+const nomJug=(eq,o)=>{const j=jugador(eq,o);return j?nomCurt(eq,j):`#${o}`};
 const parella=(eq,par)=>par&&par.length===2?par.map(o=>nomJug(eq,o)).join(" / "):"—";
 
 /* ---------- navegació ---------- */
@@ -254,6 +267,7 @@ function view(){
   if(h.startsWith("acta-"))return "acta";
   if((h==="avisos"||h==="validacio"||h==="rols")&&S.admin)return h;
   if(h==="capita"&&!S.admin&&S.uid&&S.canWrite!==false)return h;
+  if(h==="estadistiques"&&potEstad())return h;
   return ["equips","classificacio"].includes(h)?h:"calendari";
 }
 function renderPicker(){
@@ -442,6 +456,8 @@ function renderEquips(box){
     box.append(el("details",{class:"card",id:"equip-"+id},sum,body));
   }
 }
+/* D60: a la web amb backend propi l'acta que envia el capità de l'equip local compta a l'instant (el servidor la copia a «validades»). */
+const AUTO=!!window.LCTP_AUTH;
 /* ---------- rols: capitans per equip (fase 4) ---------- */
 const capitansDe=id=>S.rols?.equips?.[id]||[];
 const meusEquips=()=>S.uid?Object.keys(S.rols?.equips||{}).filter(t=>capitansDe(t).includes(S.uid)):[];
@@ -648,11 +664,116 @@ function omplirFinestra(){
   dlg.replaceChildren(head,body);
 }
 
+
+/* ---------- estadístiques de jugadors i preparació d'alineacions (D62; només administrador i capitans, web pròpia) ---------- */
+const potEstad=()=>AUTO&&!!S.uid&&(S.admin||meusEquips().length>0);
+const equipsEstad=()=>S.admin?Object.values(S.equips).sort((a,b)=>String(a.divisio).localeCompare(String(b.divisio))||(a.id.startsWith("M")===b.id.startsWith("M")?0:a.id.startsWith("M")?-1:1)||a.nom.localeCompare(b.nom)).map(t=>t.id):meusEquips();
+const pct=x=>x==null?"—":Math.round(x*100)+"%";
+const nomOrdre=(eq,o)=>{const j=jugador(eq,o);return j?nomCurt(eq,j):`#${o}`};
+const elimsEquip=eq=>totesElims().filter(f=>f.local===eq||f.visitant===eq).sort((a,b)=>a.data.localeCompare(b.data)||a.jornada-b.jornada);
+const properaElim=eq=>elimsEquip(eq).find(f=>!S.validades[f.id]);
+const tornsBuits=()=>[0,1,2].map(()=>[[null,null],[null,null]]);
+const ORDRES={pctPartits:"% partits guanyats",pctJocs:"% jocs guanyats",pj:"Partits jugats",ordre:"Ordre de l'equip"};
+function renderEstadistiques(box){
+  const eqs=equipsEstad();
+  if(!eqs.length){box.append(el("div",{class:"state",text:"No tens cap equip assignat."}));return}
+  if(!eqs.includes(S.estEquip))S.estEquip=eqs[0];
+  const eq=S.estEquip, t=S.equips[eq];
+  box.append(el("h2",{text:`Estadístiques · ${nomEq(eq)}`}));
+  box.append(el("p",{class:"note",text:"Només hi veuen aquesta pantalla els capitans de l'equip i l'administrador. Compten els partits disputats de les actes validades (també les retirades); els WO de parella es compten a part i els WO d'equip no tenen jugadors. El match tie-break compta com a set, no com a joc. Efectivitat: % de partits guanyats i % de jocs guanyats."}));
+  const ctl=el("div",{class:"actions"});
+  if(eqs.length>1){const sel=el("select",{id:"estEquip","aria-label":"Equip",onchange:e=>{S.estEquip=e.target.value;S.plan=null;render()}},...eqs.map(id=>el("option",{value:id,text:`${S.equips[id]?.divisio?(id[0]+S.equips[id].divisio+" · "):""}${nomEq(id)}`})));sel.value=eq;ctl.append(sel)}
+  const ord=el("select",{id:"estOrdre","aria-label":"Ordena per",onchange:e=>{S.estOrdre=e.target.value;render()}},...Object.entries(ORDRES).map(([k,v])=>el("option",{value:k,text:"Ordena per: "+v})));
+  ord.value=S.estOrdre||"pctPartits"; ctl.append(ord); box.append(ctl);
+  const st=E.estadistiquesJugadors(eq,totesElims(),S.validades);
+  const per={}; st.jugadors.forEach(j=>per[j.ordre]=j);
+  const buit={pj:0,pg:0,pp:0,setsG:0,setsP:0,jocsG:0,jocsP:0,mtbJ:0,mtbG:0,woG:0,woP:0,retirades:0,elims:0,ultims:[],torns:{1:{pg:0,pp:0},2:{pg:0,pp:0},3:{pg:0,pp:0}},pctPartits:null,pctJocs:null};
+  const k=S.estOrdre||"pctPartits";
+  const files=(t?.jugadors||[]).map(j=>({...buit,...(per[j.ordre]||{}),ordre:j.ordre,nom:nomCurt(eq,j)}))
+    .sort((a,b)=>k==="ordre"?a.ordre-b.ordre:((b[k]??-1)-(a[k]??-1))||b.pj-a.pj||a.ordre-b.ordre);
+  const jugats=st.jugadors.filter(j=>j.pj>0).length;
+  box.append(el("h2",{text:`Jugadors (${jugats} amb partits)`,style:"margin-top:18px"}));
+  const th=(...c)=>el("tr",{},...c.map(x=>el("th",{text:x})));
+  const tb=el("tbody");
+  for(const r of files)tb.append(el("tr",{},el("td",{text:`${r.ordre}. ${r.nom}`}),el("td",{class:"num",text:r.pj}),el("td",{class:"num",text:`${r.pg}-${r.pp}`}),
+    el("td",{class:"num",text:pct(r.pctPartits)}),el("td",{class:"num",text:pct(r.pctJocs)}),el("td",{class:"num",text:`${r.setsG}-${r.setsP}`}),el("td",{class:"num",text:`${r.jocsG}-${r.jocsP}`}),
+    el("td",{class:"num",text:r.mtbJ?`${r.mtbG}/${r.mtbJ}`:"—"}),el("td",{class:"num",text:r.woG||r.woP?`${r.woG}/${r.woP}`:"—"}),
+    el("td",{text:[1,2,3].map(n=>`T${n} ${r.torns[n].pg}-${r.torns[n].pp}`).join(" · ")}),el("td",{class:"num",text:r.elims}),el("td",{text:r.ultims.join(" ")||"—"})));
+  box.append(el("div",{class:"card tablewrap"},el("table",{id:"taulaJugadors"},el("thead",{},th("Jugador/a","PJ","G-P","% part.","% jocs","Sets","Jocs","MTB (G/J)","WO (F/C)","Per torn (G-P)","Elim.","Últims 5")),tb)));
+  box.append(el("p",{class:"note",text:"PJ: partits disputats. MTB: match tie-breaks guanyats sobre jugats. WO: partits guanyats (F) o perduts (C) per incompareixença, sense comptar a l'efectivitat. Elim.: eliminatòries en què ha jugat. Últims 5: G guanyat, P perdut (del més antic al més recent)."}));
+  const ps=[...st.parelles].sort((a,b)=>b.pj-a.pj||(b.pctPartits??-1)-(a.pctPartits??-1));
+  box.append(el("h2",{text:`Parelles (${ps.length})`,style:"margin-top:18px"}));
+  if(!ps.length)box.append(el("div",{class:"state",text:"Encara no hi ha cap partit disputat."}));
+  else{const tp=el("tbody");
+    for(const p of ps)tp.append(el("tr",{},el("td",{text:p.jugadors.map(o=>nomOrdre(eq,o)).join(" / ")}),el("td",{class:"num",text:p.pj}),el("td",{class:"num",text:`${p.pg}-${p.pp}`}),
+      el("td",{class:"num",text:pct(p.pctPartits)}),el("td",{class:"num",text:pct(p.pctJocs)}),el("td",{class:"num",text:`${p.setsG}-${p.setsP}`}),el("td",{class:"num",text:`${p.jocsG}-${p.jocsP}`}),
+      el("td",{class:"num",text:p.mtbJ?`${p.mtbG}/${p.mtbJ}`:"—"}),el("td",{text:p.ultims.join(" ")})));
+    box.append(el("div",{class:"card tablewrap"},el("table",{id:"taulaParelles"},el("thead",{},th("Parella","PJ","G-P","% part.","% jocs","Sets","Jocs","MTB (G/J)","Últims")),tp)));}
+  renderPlanificador(box,eq,st);
+}
+function renderPlanificador(box,eq,st){
+  if(!S.plan||S.plan.equip!==eq)S.plan={equip:eq,id:null,nom:"",eliminatoria:properaElim(eq)?.id||"",torns:tornsBuits()};
+  const plan=S.plan, f=plan.eliminatoria?elim(plan.eliminatoria):null, costat=f&&f.visitant===eq?"V":"L";
+  const card=el("div",{class:"card",id:"planificador"}), body=el("div",{class:"body"}); card.append(body);
+  body.append(el("h2",{text:plan.id?`Alineació: ${plan.nom}`:"Preparar una alineació"}));
+  body.append(el("p",{class:"note",text:"Tria les parelles de cada torn i mira'n l'historial. Les alineacions desades són privades: només les veus tu."}));
+  const pend=elimsEquip(eq).filter(x=>!S.validades[x.id]);
+  const se=el("select",{id:"al-elim",onchange:e=>{plan.eliminatoria=e.target.value;render()}},el("option",{value:"",text:"Sense eliminatòria concreta"}),
+    ...pend.map(x=>el("option",{value:x.id,text:`${x.divisio} J${x.jornada} · ${x.local===eq?"vs "+nomEq(x.visitant)+" (local)":"a "+nomEq(x.local)+" (visitant)"} · ${capSetmana(x.data)}`})));
+  se.value=plan.eliminatoria||""; body.append(el("div",{class:"field"},el("label",{for:"al-elim",text:"Eliminatòria"}),se));
+  const roster=S.equips[eq]?.jugadors||[];
+  for(let t=0;t<3;t++){
+    const row=el("div",{class:"field"},el("strong",{text:`Torn ${t+1}`}));
+    for(let k=0;k<2;k++){
+      const pos=E.PARTITS[2*t+k][costat].join("/"); const g=el("div",{class:"actions"},el("span",{class:"note",text:`Parella ${pos}:`}));
+      for(let i=0;i<2;i++){const sel=el("select",{id:`al-t${t}-${k}-${i}`,"aria-label":`Torn ${t+1}, parella ${pos}, jugador ${i+1}`,onchange:e=>{plan.torns[t][k][i]=e.target.value===""?null:Number(e.target.value);render()}},
+        el("option",{value:"",text:"— Jugador/a —"}),...roster.map(j=>el("option",{value:String(j.ordre),text:`${j.ordre}. ${nomCurt(eq,j)}`})));
+        sel.value=plan.torns[t][k][i]==null?"":String(plan.torns[t][k][i]); g.append(sel)}
+      row.append(g);
+    }
+    body.append(row);
+  }
+  const ev=E.avaluaAlineacio(costat,plan.torns,st);
+  if(ev.errors.length)body.append(el("div",{class:"errlist"},el("strong",{text:"Errors"}),el("ul",{},...ev.errors.map(e=>el("li",{text:e})))));
+  if(ev.avisos.length)body.append(el("div",{class:"warnlist"},el("strong",{text:"Avisos"}),el("ul",{},...ev.avisos.map(e=>el("li",{text:e})))));
+  const tb=el("tbody");
+  for(const r of ev.files){const h=r.historial;
+    tb.append(el("tr",{},el("td",{text:`T${r.torn} · ${r.posicio}`}),el("td",{text:r.jugadors.length?r.jugadors.map(o=>nomOrdre(eq,o)).join(" / "):"—"}),
+      el("td",{text:r.incompleta?"Incompleta":h?`${h.pj} PJ · ${h.pg}-${h.pp} · ${pct(h.pctPartits)} part. · ${pct(h.pctJocs)} jocs`:"Sense historial junts"}),
+      el("td",{text:r.individual.map((x,i)=>`${nomOrdre(eq,r.jugadors[i])}: ${x&&x.pj?`${pct(x.pctPartits)} (${x.pj} PJ)`:"sense partits"}`).join(" · ")})));}
+  body.append(el("div",{class:"tablewrap"},el("table",{id:"taulaPla"},el("thead",{},el("tr",{},...["Partit","Parella","Historial de la parella","Individual (% partits)"].map(x=>el("th",{text:x})))),tb)));
+  const rs=ev.resum;
+  body.append(el("p",{id:"al-resum",text:`Parelles completes: ${rs.completes} de 6 · amb historial: ${rs.parellesAmbHistorial} · efectivitat conjunta de les parelles amb historial: ${pct(rs.pctPartits)} partits, ${pct(rs.pctJocs)} jocs${rs.pj?` (sobre ${rs.pj} partits)`:""}.`}));
+  const nom=el("input",{type:"text",id:"al-nom",maxlength:"60",placeholder:"Nom de l'alineació (p. ex. Opció A)",value:plan.nom||"",oninput:e=>{plan.nom=e.target.value}});
+  body.append(el("div",{class:"field"},el("label",{for:"al-nom",text:"Nom"}),nom));
+  body.append(el("div",{class:"actions"},
+    el("button",{class:"btn",type:"button",id:"al-desa",text:plan.id?"Desa els canvis":"Desa l'alineació",onclick:async()=>{
+      if(!plan.nom.trim()){S.flash={ok:false,text:"Posa un nom a l'alineació."};render();return}
+      const id=plan.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now()));
+      const ok=await guardar(()=>S.db.doc("alineacions/"+id).set({equip:eq,eliminatoria:plan.eliminatoria||null,nom:plan.nom.trim(),costat,torns:plan.torns}),"Alineació desada.");
+      if(ok)plan.id=id; render()}}),
+    el("button",{class:"btn sec",type:"button",id:"al-nova",text:"Nova alineació",onclick:()=>{S.plan=null;render()}})));
+  if(S.flash&&view()==="estadistiques")body.append(el("div",{class:S.flash.ok?"oklist":"errlist",text:S.flash.text}));
+  const des=Object.entries(S.alineacions||{}).map(([id,a])=>({id,...a})).filter(a=>a.equip===eq);
+  body.append(el("h2",{text:`Alineacions desades (${des.length})`,style:"margin-top:18px"}));
+  if(!des.length)body.append(el("div",{class:"state",text:"Encara no n'has desat cap."}));
+  else{const tt=el("tbody");
+    for(const a of des){const fa=a.eliminatoria?elim(a.eliminatoria):null; const cs=fa&&fa.visitant===eq?"V":"L"; const e2=E.avaluaAlineacio(cs,a.torns||tornsBuits(),st);
+      tt.append(el("tr",{class:"al-desada"},el("td",{text:a.nom}),el("td",{text:fa?`${fa.divisio} J${fa.jornada} · ${nomEq(fa.local===eq?fa.visitant:fa.local)}`:"—"}),
+        el("td",{class:"num",text:`${e2.resum.parellesAmbHistorial}/6`}),el("td",{class:"num",text:pct(e2.resum.pctPartits)}),el("td",{class:"num",text:pct(e2.resum.pctJocs)}),
+        el("td",{text:e2.errors.length?`${e2.errors.length} errors`:"Correcta"}),
+        el("td",{},el("button",{class:"btn sec",type:"button",text:"Obre",onclick:()=>{S.plan={equip:eq,id:a.id,nom:a.nom,eliminatoria:a.eliminatoria||"",torns:JSON.parse(JSON.stringify(a.torns||tornsBuits()))};render();$("#planificador")?.scrollIntoView()}}),
+          el("button",{class:"btn danger",type:"button",text:"Esborra",onclick:async()=>{await guardar(()=>S.db.doc("alineacions/"+a.id).delete(),"Alineació esborrada.");if(S.plan&&S.plan.id===a.id)S.plan=null;render()}}))));}
+    body.append(el("div",{class:"tablewrap"},el("table",{id:"taulaAlineacions"},el("thead",{},el("tr",{},...["Nom","Eliminatòria","Parelles amb historial","% partits","% jocs","Comprovació",""].map(x=>el("th",{text:x})))),tt)));
+    body.append(el("p",{class:"note",text:"La comparació fa servir l'historial de cada parella: més partits junts, dada més fiable. Una parella sense historial no compta al percentatge."}));}
+  box.append(card);
+}
+
 /* ---------- validació (admin) ---------- */
 function renderValidacio(box){
   const pend=pendents().sort((a,b)=>(a.enviadaAt||"").localeCompare(b.enviadaAt||""));
   box.append(el("h2",{text:`Actes pendents (${pend.length})`}));
-  box.append(el("p",{class:"note",text:"Una acta no compta a la classificació fins que la valides. Pots validar-la, corregir-la o retornar-la a l'equip amb el motiu."}));
+  box.append(el("p",{class:"note",text:AUTO?"Aquí només hi ha les actes anul·lades o retornades que encara no compten. Les que envien els capitans compten a l'instant (veure a sota).":"Una acta no compta a la classificació fins que la valides. Pots validar-la, corregir-la o retornar-la a l'equip amb el motiu."}));
   if(!pend.length)box.append(el("div",{class:"state",text:"No hi ha actes pendents de validar."}));
   for(const a of pend){
     const f=elim(a.eliminatoria); if(!f)continue;
@@ -664,6 +785,19 @@ function renderValidacio(box){
       el("div",{class:"team away"},nomEq(f.visitant),el("small",{text:a.dataJoc?dataLlarga(a.dataJoc):""})),
       el("div",{class:"meta"},chk.errors.length?el("span",{class:"chipst bad",text:`${chk.errors.length} errors`}):el("span",{class:"chipst ok",text:"Sense errors"}),
         chk.avisos.length?el("span",{class:"chipst pend",text:`${chk.avisos.length} avisos`}):null,a.arxiu?el("span",{text:"Amb acta escanejada"}):null)));
+  }
+  if(AUTO){
+    const rec=Object.values(S.actes).filter(a=>a.estat==="validada"&&a.enviadaPer&&a.enviadaPer!==S.uid&&S.validades[a.eliminatoria]&&S.validades[a.eliminatoria].tipus!=="wo_equip").sort((a,b)=>(b.enviadaAt||"").localeCompare(a.enviadaAt||"")).slice(0,15);
+    box.append(el("h2",{text:`Darreres actes enviades pels capitans (${rec.length})`,style:"margin-top:24px"}));
+    box.append(el("p",{class:"note",text:"Aquestes actes ja compten a la classificació (D60). Obre'n una per revisar-la, corregir-la o anul·lar-ne la validació."}));
+    if(!rec.length)box.append(el("div",{class:"state",text:"Encara no n'hi ha cap."}));
+    for(const a of rec){
+      const f=elim(a.eliminatoria); if(!f)continue; const r=E.resultatEliminatoria(a);
+      box.append(el("a",{class:"card match",href:"#acta-"+f.id,style:"display:grid"},
+        el("div",{class:"team"},nomEq(f.local),el("small",{text:`${f.divisio} · Jornada ${f.jornada}`})),
+        el("span",{class:"score",text:`${r.partitsL} - ${r.partitsV}`}),
+        el("div",{class:"team away"},nomEq(f.visitant),el("small",{text:a.enviadaAt?`Enviada ${dataLlarga(a.enviadaAt.slice(0,10))}`:""}))));
+    }
   }
   const tard=totesElims().filter(f=>foraTermini(f)&&!S.validades[f.id]&&!(S.actes[f.id]&&S.actes[f.id].estat==="pendent"));
   box.append(el("h2",{text:`Sense resultat després de 15 dies (${tard.length})`,style:"margin-top:24px"}));
@@ -703,6 +837,10 @@ function renderActaView(box){
   if(v){
     box.append(el("div",{class:"oklist",text:v.tipus==="wo_equip"?`WO d'equip registrat per l'administrador (${v.motiu==="fora_termini"?"més de 15 dies sense jugar":"incompareixença"}).`:"Acta validada: compta a la classificació."}));
     renderActaRO(box,f,v);
+    if(AUTO&&!S.admin&&potEnviar(f)){
+      if(v.tipus==="wo_equip"||v.corregidaAt)box.append(el("p",{class:"note",text:"L'administrador ha fixat aquest resultat. Si hi ha cap error, contacta amb ell."}));
+      else box.append(el("div",{class:"actions"},el("button",{class:"btn sec",type:"button",text:"Corregir l'acta",onclick:()=>{S.draft={...clonaActa(v),mode:"enviament"};omplirDraft(S.draft);render()}})));
+    }
     if(S.admin)box.append(el("div",{class:"actions"},
       v.tipus!=="wo_equip"?el("button",{class:"btn sec",type:"button",text:"Corregir l'acta",onclick:()=>{S.draft={...clonaActa(v),mode:"correccio"};omplirDraft(S.draft);render()}}):null,
       el("button",{class:"btn danger",type:"button",text:"Anul·lar la validació",onclick:()=>confirmar(box,"L'eliminatòria deixarà de comptar a la classificació fins que es torni a validar.",async()=>{
@@ -830,7 +968,7 @@ function renderForm(box,f){
   }});
   form.append(el("div",{class:"field"},el("label",{for:"f-arxiu",text:"Acta escanejada"}),fileIn,el("br"),arxiuInfo));
   if(S.sample&&S.imgOk){form.append(el("div",{class:"field"},llegeixBtn,el("br"),llegeixInfo));if(d.fitxer)triaLectura(d.fitxer)}
-  const opts=(eq)=>[el("option",{value:"",text:"— Jugador/a —"}),...(S.equips[eq]?.jugadors||[]).map(j=>el("option",{value:String(j.ordre),text:`${j.ordre}. ${j.nom} ${j.cognoms}`}))];
+  const opts=(eq)=>[el("option",{value:"",text:"— Jugador/a —"}),...(S.equips[eq]?.jugadors||[]).map(j=>el("option",{value:String(j.ordre),text:`${j.ordre}. ${nomCurt(eq,j)}`}))];
   d.partits.forEach((p,i)=>{
     const def=E.PARTITS[i];
     if(i%2===0)form.append(el("div",{class:"torn"},el("h3",{text:`Torn ${def.torn}`})));
@@ -860,6 +998,7 @@ function renderForm(box,f){
   });
   const resum=el("div",{id:"resum"});
   form.append(resum);
+  if(AUTO&&!S.admin&&d.mode!=="correccio")form.append(el("p",{class:"note",text:"En enviar l'acta, el resultat compta a la classificació a l'instant. Revisa-la bé; si t'equivoques, la podràs corregir."}));
   const acts=el("div",{class:"actions"});
   if(d.mode==="correccio")acts.append(el("button",{class:"btn",type:"button",id:"b-desa",text:"Desar la correcció",onclick:()=>desar(f,"correccio")}));
   else{
@@ -906,7 +1045,7 @@ async function desar(f,mode){
     ok=await guardar(()=>S.db.doc("validades/"+f.id).set({...a,validadaAt:prev.validadaAt||ara,validadaPer:prev.validadaPer||S.uid,corregidaAt:ara,corregidaPer:S.uid}),"Correcció desada. La classificació s'ha recalculat.");
   }else{
     const doc={...a,estat:"pendent",enviadaAt:ara,enviadaPer:S.uid,motiu:null};
-    ok=await guardar(()=>S.db.doc("actes/"+f.id).set(doc),mode==="valida"?null:"Acta enviada. Queda pendent de validar per l'administrador.");
+    ok=await guardar(()=>S.db.doc("actes/"+f.id).set(doc),mode==="valida"?null:(AUTO&&!S.admin?"Acta enviada. Ja compta a la classificació.":"Acta enviada. Queda pendent de validar per l'administrador."));
     if(ok&&mode==="valida")ok=await validar(f,doc,true);
   }
   if(ok){S.draft=null;S.editing=false}
@@ -954,7 +1093,7 @@ let ultimaVista=null;
 function render(){
   if(S.lliga)$("#temporada").textContent="Temporada "+S.lliga.temporada;
   actualitzaFinestra();
-  $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!S.admin; $("#tabValidacio").hidden=!S.admin; $("#tabRols").hidden=!S.admin; $("#tabCapita").hidden=!(!S.admin&&S.db&&S.uid&&S.canWrite!==false);
+  $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!S.admin; $("#tabValidacio").hidden=!S.admin; $("#tabRols").hidden=!S.admin; $("#tabCapita").hidden=!(!S.admin&&S.db&&S.uid&&S.canWrite!==false); $("#tabEstad").hidden=!potEstad();
   const me=S.admin?[]:meusEquips(); $("#rolBadge").hidden=!me.length; $("#rolBadge").textContent=me.length?`${me.every(t=>t.startsWith("F-"))?"Capitana":"Capità"} de ${me.map(nomEq).join(", ")}`:"";
   const np=pendents().length; $("#tabValidacio").textContent=np?`Validació (${np})`:"Validació";
   const v=view(); const clau=v+location.hash;
@@ -966,7 +1105,7 @@ function render(){
   const msg=stateMsg(); if(msg){$("#divPicker").hidden=true;box.append(el("div",{class:"state",text:msg}));return}
   renderPicker();
   if(v==="calendari")renderCalendari(box); else if(v==="classificacio")renderClassificacio(box); else if(v==="equips")renderEquips(box);
-  else if(v==="validacio")renderValidacio(box); else if(v==="avisos")renderAvisos(box); else if(v==="rols")renderRols(box); else if(v==="capita")renderCapita(box); else renderActaView(box);
+  else if(v==="validacio")renderValidacio(box); else if(v==="avisos")renderAvisos(box); else if(v==="rols")renderRols(box); else if(v==="capita")renderCapita(box); else if(v==="estadistiques")renderEstadistiques(box); else renderActaView(box);
 }
 window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0)});
 render();
@@ -1067,6 +1206,7 @@ function pintaAuth(){
   if(S.canWrite!==false)col("actes","actes",null);
   if(S.admin)col("solicituds","sol",null);
   else if(S.uid&&S.canWrite!==false)db.doc("solicituds/"+S.uid).onSnapshot(s=>{S.meva=s.exists?s.data():null;render()},()=>{});
+  if(AUTO&&S.uid)col("alineacions","alineacions");
   if(S.admin)db.doc("admin/avisos").onSnapshot(s=>{S.avisos=s.exists?s.data():null;render()},()=>{});
 })();
 </script>
