@@ -65,7 +65,12 @@
       id: r.eliminatoria, data: { ...r.data, actualitzatPer: r.actualitzat_per, actualitzatAt: r.actualitzat_at } }));
     throw new Error("col·lecció desconeguda: " + nom);
   }
+  let esFct = false; const fctNoms = {};
   async function llegeixRols() {
+    if (esFct) {   // D73: convidat FCT, només equip i nom (mai el correu)
+      const r = ck(await sb.rpc("rols_fct")) || []; const eq = {};
+      r.forEach(x => { (eq[x.equip] = eq[x.equip] || []).push(x.user_id); fctNoms[x.user_id] = x.nom || ""; }); return { equips: eq };
+    }
     const rows = ck(await sb.from("capitans").select("equip,user_id")); const eq = {};
     rows.forEach(r => { (eq[r.equip] = eq[r.equip] || []).push(r.user_id); }); return { equips: eq };
   }
@@ -155,9 +160,11 @@
   const user = {
     id: async () => { await ready; return uid(); },
     canEdit: async () => { await ready; if (!session) return false; const r = await sb.rpc("is_admin"); return !r.error && r.data === true; },
+    isFct: async () => { await ready; if (!session) return false; const r = await sb.rpc("is_fct"); esFct = !r.error && r.data === true; return esFct; },
     can: async p => { await ready; return p === "data.write" ? !!session : false; },
     profiles: async ids => {
       const out = {}; if (!ids.length) return out;
+      if (esFct) { ids.forEach(i => { if (fctNoms[i]) out[i] = { name: fctNoms[i] }; }); return out; }
       try {
         const c = await sb.from("capitans").select("user_id,nom,email").in("user_id", ids);
         const s = await sb.from("solicituds").select("user_id,nom_declarat,email").in("user_id", ids);
