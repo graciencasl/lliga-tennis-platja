@@ -247,8 +247,14 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <span class="lbl">Masculí</span><div class="chips" id="chipsM"></div>
     <span class="lbl">Femení</span><div class="chips" id="chipsF"></div>
   </div>
+  <div class="warnlist" id="avisAcord" hidden><strong>Acord de protecció de dades pendent.</strong> <span>Fins que l'acceptis no veuràs noms, llicències ni telèfons.</span> <button class="btn" type="button" id="btnAcord">Llegeix i accepta</button></div>
   <section id="view"><div class="state">Carregant dades de la lliga…</div></section>
 </main>
+<footer id="avisFct" style="max-width:960px;margin:24px auto;padding:0 16px;font-size:.82rem;color:var(--muted)">
+  <p style="margin:0 0 6px">Aquesta pàgina <strong>no és una pàgina oficial de la Federació Catalana de Tennis (FCT)</strong>. Els drets d'autor de la Lliga Catalana de Tennis Platja pertanyen exclusivament a la FCT. Web organitzada per GRACIENCA SL.</p>
+  <p style="margin:0"><a href="#" id="lnkAcord" hidden>Acord de protecció de dades</a></p>
+</footer>
+<dialog id="dlgAcord" aria-labelledby="acordTit"></dialog>
 <dialog id="dlgLogin" aria-labelledby="loginTit"><form method="dialog" id="loginForm">
   <h2 id="loginTit">Entra</h2>
   <p class="note" id="loginInfo"></p>
@@ -578,6 +584,36 @@ function renderEquips(box){
   }
 }
 /* Finestra amb els membres d'un equip (D68) */
+/* D72: acord de protecció de dades. Cal pujar ACORD_VERSIO (aquí i a supabase/14_acord_dades.sql) si es canvia el text. */
+const ACORD_VERSIO=1;
+const acordOk=()=>!!S.acord&&S.acord.versio>=ACORD_VERSIO;
+const ACORD_TXT=[
+ ["Qui n'és el responsable","GRACIENCA SL organitza i gestiona aquesta web i és responsable del tractament de les dades que s'hi recullen. La Lliga Catalana de Tennis Platja pertany a la Federació Catalana de Tennis (FCT); aquesta web no és una pàgina oficial de la FCT."],
+ ["A quines dades accediràs","Com a capità o capitana, o com a membre d'un equip, podràs veure els noms, cognoms i números de llicència dels jugadors de la lliga i, si ets capità o capitana, els telèfons que altres capitans hagin afegit per contactar-hi per WhatsApp. Només les persones participants que accepten aquest acord poden veure aquestes dades; el públic no les veu."],
+ ["Per a què les pots utilitzar","Només per participar en la lliga: organitzar les eliminatòries, preparar alineacions i contactar amb altres capitans per qüestions de la lliga."],
+ ["Què et compromets a fer","1) No copiar, publicar ni difondre aquestes dades (tampoc en captures de pantalla, llistes, xarxes socials ni grups de WhatsApp oberts). 2) No cedir-les a tercers ni utilitzar-les per a publicitat, promocions o qualsevol altra finalitat. 3) Utilitzar els telèfons només per a missatges relacionats amb la lliga i no conservar-los més temps del necessari. 4) Avisar-nos de seguida si en perds el control o en detectes un ús indegut."],
+ ["Les teves dades","Si demanes ser capità o capitana, o membre d'un equip, tractem el teu nom, el teu correu electrònic i, si l'afegeixes, el teu telèfon, per gestionar la teva participació. El telèfon només el veuen els altres capitans. Pots exercir els drets d'accés, rectificació, supressió, oposició, limitació i portabilitat escrivint a lligacatalanatennisplatja@gmail.com. També pots presentar una reclamació davant l'Autoritat Catalana de Protecció de Dades (apdcat.gencat.cat) o l'Agència Espanyola de Protecció de Dades (aepd.es)."],
+ ["Incompliment i constància","Si no compleixes aquests compromisos, podem retirar-te l'accés a aquestes dades. En acceptar l'acord, en queda constància (data i versió)."]];
+const dlgAc=$("#dlgAcord"); let acordCb=null;
+dlgAc.addEventListener("click",e=>{if(e.target===dlgAc)dlgAc.close()});
+async function acceptaAcord(){
+  const ok=await guardar(()=>S.db.doc("acords/"+S.uid).set({versio:ACORD_VERSIO}),null);
+  if(ok){S.acord={versio:ACORD_VERSIO,acceptatAt:new Date().toISOString()};dlgAc.close();const cb=acordCb;acordCb=null;render();if(cb)cb()}
+  else render()
+}
+function obreAcord(cb){
+  acordCb=cb||null;
+  const puc=AUTO&&!!S.uid&&!acordOk();
+  const head=el("div",{class:"dhead"},el("div",{},el("h2",{id:"acordTit",text:"Acord de protecció de dades"})),el("button",{class:"dclose",type:"button",id:"acord-tanca",text:"Tanca",onclick:()=>dlgAc.close()}));
+  const body=el("div",{class:"dbody"},...ACORD_TXT.map(([t,x])=>el("div",{},el("h3",{text:t}),el("p",{text:x}))));
+  if(puc){
+    const ck=el("input",{type:"checkbox",id:"acordCheck"}); const bt=el("button",{class:"btn",type:"button",id:"acordAccepta",text:"Accepto l'acord",onclick:acceptaAcord}); bt.disabled=true; ck.onchange=()=>{bt.disabled=!ck.checked};
+    body.append(el("label",{class:"field",style:"display:flex;gap:8px;align-items:flex-start"},ck,el("span",{text:"He llegit l'acord i m'hi compromet."})),el("div",{class:"actions"},bt,el("button",{class:"btn sec",type:"button",id:"acordCancela",text:"Ara no",onclick:()=>dlgAc.close()})));
+  }else if(AUTO&&S.uid&&acordOk())body.append(el("p",{class:"note",id:"acordFet",text:`Acord acceptat el ${S.acord.acceptatAt?new Date(S.acord.acceptatAt).toLocaleDateString("ca"):"—"} (versió ${S.acord.versio}).`}));
+  else if(AUTO)body.append(el("p",{class:"note",text:"Hauràs d'acceptar-lo en sol·licitar ser capità, capitana o membre d'un equip."}));
+  dlgAc.replaceChildren(head,body); if(!dlgAc.open)dlgAc.showModal();
+}
+$("#btnAcord").addEventListener("click",()=>obreAcord()); $("#lnkAcord").addEventListener("click",e=>{e.preventDefault();obreAcord()});
 const dlgM=$("#dlgMembres");
 dlgM.addEventListener("click",e=>{if(e.target===dlgM)dlgM.close()});
 dlgM.addEventListener("close",()=>{S.equipMembres=null});
@@ -664,6 +700,7 @@ async function enviaSolicitud(){
   const nom=S.capNom.trim().replace(/\s+/g," ").slice(0,80);
   if(!nom){S.capMsg={ok:false,text:"Escriu el teu nom i cognoms perquè l'administrador et pugui reconèixer."};render();return}
   if(!S.capSel.length){S.capMsg={ok:false,text:"Tria almenys un equip."};render();return}
+  if(AUTO&&!acordOk()){obreAcord(enviaSolicitud);return}
   const ok=await guardar(()=>S.db.doc("solicituds/"+S.uid).set({equips:S.capSel,nomDeclarat:nom,enviatAt:new Date().toISOString()}),null);
   S.capMsg=ok?{ok:true,text:"Sol·licitud enviada. L'administrador l'ha d'aprovar."}:S.flash; S.flash=null; if(ok)S.capSel=[]; render();
 }
@@ -698,6 +735,7 @@ function renderCapitaSol(box){
 async function enviaMembre(){
   const nom=(S.memNom||"").trim().replace(/\s+/g," ").slice(0,80);
   if(!S.memEq||!nom){S.memMsg={ok:false,text:"Tria l'equip i escriu el teu nom i cognoms (tal com surts a la llista de l'equip)."};render();return}
+  if(AUTO&&!acordOk()){obreAcord(enviaMembre);return}
   const ok=await guardar(()=>S.db.doc("membres/"+S.uid).set({equip:S.memEq,nomDeclarat:nom,aprovat:false}),null);
   S.memMsg=ok?{ok:true,text:`Sol·licitud enviada. L'ha d'aprovar ${unCap(S.memEq)} del teu equip.`}:S.flash; S.flash=null; if(ok){S.memEq="";S.memNom=""} render();
 }
@@ -1619,6 +1657,9 @@ function render(){
   if(dlgA.open){if(view()==="acta")dlgA.close();else omplirActaPop()}
   if(dlgJ2.open){if(view()!=="estadistiques")dlgJ2.close();else omplirJugador()}
   $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!S.admin; $("#tabValidacio").hidden=!S.admin; $("#tabRols").hidden=!S.admin; $("#tabCapita").hidden=!(!S.admin&&S.db&&S.uid&&S.canWrite!==false); $("#tabEstad").hidden=!potEstad(); $("#tabAlin").hidden=!potAlin();
+  { const part=AUTO&&S.uid&&!S.admin&&(meusEquips().length>0||!!(membreMeu()&&membreMeu().aprovat)); const falta=part&&S.acord!==undefined&&!acordOk();
+    $("#avisAcord").hidden=!falta; $("#lnkAcord").hidden=!AUTO;
+    if(falta&&!S.acordAuto&&!dlgAc.open&&!document.querySelector("dialog[open]")){S.acordAuto=true;obreAcord()} }
   const me=S.admin?[]:meusEquips(); const mm=!S.admin&&!me.length?membreMeu():null; $("#rolBadge").hidden=!me.length&&!mm; $("#rolBadge").textContent=mm?`Membre de ${nomEq(mm.equip)}`:me.length?`${me.every(t=>t.startsWith("F-"))?"Capitana":"Capità"} de ${me.map(nomEq).join(", ")}`:"";
   const np=pendents().length; $("#tabValidacio").textContent=np?`Validació (${np})`:"Validació";
   const v=view(); const clau=v+location.hash;
@@ -1745,6 +1786,7 @@ function pintaAuth(){
   if(AUTO&&S.uid)col("alineacions","alineacions");
   if(AUTO&&S.uid)col("membres","membres",null);
   if(AUTO&&S.uid)col("contactes","contactes",null);
+  if(AUTO&&S.uid)db.doc("acords/"+S.uid).onSnapshot(s=>{S.acord=s.exists?s.data():null;render()},()=>{S.acord=null;render()});
   if(AUTO&&S.uid)db.doc("telefons/"+S.uid).onSnapshot(s=>{S.tel=s.exists?s.data():null;render()},()=>{});
   if(AUTO&&S.uid)col("esborranys","esborranys",null);
   if(S.admin)db.doc("admin/avisos").onSnapshot(s=>{S.avisos=s.exists?s.data():null;render()},()=>{});

@@ -74,6 +74,7 @@
     if (path === "lliga/config") { const r = ck(await sb.from("lliga_config").select("data").eq("id", 1).maybeSingle()); return r ? r.data : null; }
     if (path === "admin/avisos") { const r = ck(await sb.from("avisos").select("data").eq("id", 1).maybeSingle()); return r ? r.data : null; }
     if (path === "roles/capitans") return llegeixRols();
+    if (c === "acords") { const r = ck(await sb.from("acords_dades").select("versio,acceptat_at").eq("user_id", id).maybeSingle()); return r ? { versio: r.versio, acceptatAt: r.acceptat_at } : null; }
     if (c === "telefons") { const r = ck(await sb.from("capitans_contacte").select("telefon").eq("user_id", id).maybeSingle()); return r ? { telefon: r.telefon } : null; }
     if (c === "solicituds") {
       const r = ck(await sb.from("solicituds").select("user_id,equips,nom_declarat,enviat_at,email").eq("user_id", id).maybeSingle());
@@ -107,6 +108,7 @@
       data: treu({ ...d, ...(d.arxiu ? { arxiu: treu(d.arxiu, ["url"]) } : {}) }, ["estat", "motiu", "enviadaAt", "enviadaPer", "eliminatoria"]) }, { onConflict: "eliminatoria" }));
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
     if (c === "membres") return ck(await sb.from("membres").upsert({ user_id: id, equip: d.equip, jugador: d.jugador == null ? null : d.jugador, aprovat: !!d.aprovat, nom_declarat: d.nomDeclarat || null }, { onConflict: "user_id" }));
+    if (c === "acords") return ck(await sb.rpc("accepta_acord"));
     if (c === "telefons") return ck(await sb.from("capitans_contacte").upsert({ user_id: id, telefon: d.telefon }, { onConflict: "user_id" }));
     if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
       data: treu(d, ["equip", "eliminatoria", "nom", "updatedAt"]) }, { onConflict: "id" }));
@@ -133,7 +135,8 @@
       if (!o.fet || clau !== o.clau) { o.clau = clau; o.fet = true; o.cb(snap); } else o.fet = true;
     } catch (e) { if (!o.fet && o.err) o.err(e); }
   }
-  async function refresca(forca) { if (enCurs) return; enCurs = true; try { await Promise.all([...oients].map(o => executa(o, forca))); } finally { enCurs = false; } }
+  let pendent = false;   /* una escriptura durant una lectura en curs obliga a tornar a llegir en acabar (si no, la pantalla es quedava amb dades velles fins al següent cicle) */
+  async function refresca(forca) { if (enCurs) { if (forca) pendent = true; return; } enCurs = true; try { await Promise.all([...oients].map(o => executa(o, forca))); } finally { enCurs = false; if (pendent) { pendent = false; refresca(true); } } }
   setInterval(() => { if (!document.hidden) refresca(false); }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refresca(false); });
   const subscriu = (tipus, path) => ({ onSnapshot(cb, err) { const o = { tipus, path, cb, err, fet: false }; oients.add(o); ready.then(() => executa(o, true)); return () => oients.delete(o); } });
