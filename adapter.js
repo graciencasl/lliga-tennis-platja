@@ -58,6 +58,7 @@
       id: r.user_id, data: { equips: r.equips, nomDeclarat: r.nom_declarat, enviatAt: r.enviat_at, email: r.email } }));
     if (nom === "membres") return ck(await sb.from("membres").select("user_id,equip,jugador,aprovat,email,enviat_at,nom_declarat")).map(r => ({
       id: r.user_id, data: { equip: r.equip, jugador: r.jugador, aprovat: r.aprovat, email: r.email, enviatAt: r.enviat_at, nomDeclarat: r.nom_declarat } }));
+    if (nom === "contactes") { if (!session) return []; const r = await sb.rpc("contactes_capitans"); return (ck(r) || []).map(x => ({ id: x.equip + "|" + x.user_id, data: { equip: x.equip, nom: x.nom, telefon: x.telefon } })); }
     if (nom === "alineacions") return ck(await sb.from("alineacions").select("id,equip,eliminatoria,nom,data,updated_at").order("updated_at", { ascending: false })).map(r => ({
       id: r.id, data: { ...r.data, equip: r.equip, eliminatoria: r.eliminatoria, nom: r.nom, updatedAt: r.updated_at } }));
     if (nom === "esborranys") return ck(await sb.from("esborranys").select("eliminatoria,data,actualitzat_per,actualitzat_at")).map(r => ({
@@ -73,6 +74,7 @@
     if (path === "lliga/config") { const r = ck(await sb.from("lliga_config").select("data").eq("id", 1).maybeSingle()); return r ? r.data : null; }
     if (path === "admin/avisos") { const r = ck(await sb.from("avisos").select("data").eq("id", 1).maybeSingle()); return r ? r.data : null; }
     if (path === "roles/capitans") return llegeixRols();
+    if (c === "telefons") { const r = ck(await sb.from("capitans_contacte").select("telefon").eq("user_id", id).maybeSingle()); return r ? { telefon: r.telefon } : null; }
     if (c === "solicituds") {
       const r = ck(await sb.from("solicituds").select("user_id,equips,nom_declarat,enviat_at,email").eq("user_id", id).maybeSingle());
       return r ? { equips: r.equips, nomDeclarat: r.nom_declarat, enviatAt: r.enviat_at, email: r.email } : null;
@@ -105,6 +107,7 @@
       data: treu({ ...d, ...(d.arxiu ? { arxiu: treu(d.arxiu, ["url"]) } : {}) }, ["estat", "motiu", "enviadaAt", "enviadaPer", "eliminatoria"]) }, { onConflict: "eliminatoria" }));
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
     if (c === "membres") return ck(await sb.from("membres").upsert({ user_id: id, equip: d.equip, jugador: d.jugador == null ? null : d.jugador, aprovat: !!d.aprovat, nom_declarat: d.nomDeclarat || null }, { onConflict: "user_id" }));
+    if (c === "telefons") return ck(await sb.from("capitans_contacte").upsert({ user_id: id, telefon: d.telefon }, { onConflict: "user_id" }));
     if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
       data: treu(d, ["equip", "eliminatoria", "nom", "updatedAt"]) }, { onConflict: "id" }));
     if (c === "esborranys") return ck(await sb.from("esborranys").upsert({ eliminatoria: id, data: treu(d, ["actualitzatPer", "actualitzatAt"]) }, { onConflict: "eliminatoria" }));
@@ -112,7 +115,7 @@
   }
   async function esborra(path) {
     const [c, id] = path.split("/");
-    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], membres: ["membres", "user_id"], esborranys: ["esborranys", "eliminatoria"] }[c];
+    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], membres: ["membres", "user_id"], esborranys: ["esborranys", "eliminatoria"], telefons: ["capitans_contacte", "user_id"] }[c];
     if (!t) throw new Error("esborrat no permès: " + path);
     ck(await sb.from(t[0]).delete().eq(t[1], id));
   }

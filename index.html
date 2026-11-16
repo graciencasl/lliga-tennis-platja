@@ -306,6 +306,10 @@ const gj=(id,pl)=>esF(id)?(pl?"jugadores":"jugadora"):(pl?"jugadors":"jugador");
 const gc=(id,pl)=>esF(id)?(pl?"capitanes":"capitana"):(pl?"capitans":"capità");
 const Jug=id=>esF(id)?"Jugadora":"Jugador";
 const unCap=id=>esF(id)?"una capitana":"un capità";
+/* D71: telèfon (WhatsApp) dels capitans. Es guarda en format internacional (+34…); 9 xifres sense prefix = Espanya. */
+const normTel=v=>{let t=String(v||"").replace(/[\s.\-()]/g,""); if(t.startsWith("00"))t="+"+t.slice(2); if(/^[6-9]\d{8}$/.test(t))t="+34"+t; return /^\+[1-9]\d{7,14}$/.test(t)?t:null};
+const waUrl=t=>"https://wa.me/"+String(t).replace(/\D/g,"");
+const contactesEquip=id=>Object.values(S.contactes||{}).filter(c=>c.equip===id);
 const jugador=(eq,ordre)=>(S.equips[eq]?.jugadors||[]).find(j=>j.ordre===ordre);
 /* Nom + primer cognom (D61). Les partícules (De, Del, La, Van, Den…) s'ajunten al cognom: «Ana De La Mano». Si dos jugadors d'un equip quedessin igual, es mostra el nom sencer. */
 const PARTICULES=new Set(["de","del","della","di","da","dos","das","do","la","las","los","le","el","van","von","den","der","ten","ter","d'","l'"]);
@@ -589,6 +593,12 @@ function omplirMembres(){
   const tb=el("tbody");
   const noms=t.jugadors.some(teNom);
   for(const p of t.jugadors)tb.append(el("tr",{"data-o":String(p.ordre)},el("td",{class:"num",text:p.ordre}),el("td",{text:nomComplet(p,t.id)}),...(noms?[el("td",{text:p.llicencia})]:[]),el("td",{class:"num",text:p.ranking==null?"—":p.ranking===9999?"s/r":p.ranking})));
+  if(AUTO&&meusEquips().length){
+    const cs=contactesEquip(id);
+    body.append(el("div",{class:"card",id:"m-wa",style:"padding:10px 12px;margin-bottom:10px"},el("strong",{text:`Contacta amb ${gc(id,1)} (WhatsApp)`}),
+      cs.length?el("div",{class:"filtre",style:"margin-top:6px"},...cs.map(c=>el("a",{class:"btn",href:waUrl(c.telefon),target:"_blank",rel:"noopener noreferrer","data-wa":c.telefon,text:`WhatsApp · ${c.nom||gc(id)}`})))
+        :el("p",{class:"note",style:"margin:6px 0 0",text:`Encara no hi ha cap ${gc(id)} amb telèfon afegit.`})));
+  }
   if(!noms)body.append(el("p",{class:"note",id:"m-privat",text:`Els noms i les llicències ${esF(t.id)?"de les jugadores":"dels jugadors"} només els veuen els participants de la lliga (${gc(t.id,1)} i membres dels equips) amb la sessió iniciada.`}));
   body.append(el("h3",{text:`Membres (${t.jugadors.length})`}),el("div",{class:"tablewrap"},el("table",{},el("thead",{},el("tr",{},el("th",{class:"num",text:"#"}),el("th",{text:Jug(t.id)}),...(noms?[el("th",{text:"Llicència"})]:[]),el("th",{class:"num",text:"Rànquing"}))),tb)),
     el("p",{class:"note",text:`Rànquing total: ${sumaRanking(t)??"—"} (${jugadorsAmbRanking(t).length} ${gj(t.id,1)} amb rànquing). Ordre segons la classificació nacional en tancar la inscripció. s/r = sense rànquing (9999).`}));
@@ -739,7 +749,25 @@ function renderGestioMembres(box,eqs){
     box.append(el("div",{class:"card"},el("div",{class:"body"},el("strong",{text:nomEq(eq)}),ul)));
   }
 }
+async function desaTel(){
+  const n=normTel(S.telVal??""); if(!n){S.telMsg={ok:false,text:"Telèfon no vàlid: escriu 9 xifres (Espanya) o el número amb prefix internacional, p. ex. +33 6 12 34 56 78."};render();return}
+  const ok=await guardar(()=>S.db.doc("telefons/"+S.uid).set({telefon:n}),null);
+  S.telMsg=ok?{ok:true,text:"Telèfon desat."}:S.flash; S.flash=null; if(ok)S.telVal=undefined; render();
+}
+async function esborraTel(){
+  const ok=await guardar(()=>S.db.doc("telefons/"+S.uid).delete(),null);
+  S.telMsg=ok?{ok:true,text:"Telèfon esborrat."}:S.flash; S.flash=null; if(ok)S.telVal=undefined; render();
+}
+function renderTelefon(box){
+  const act=S.tel&&S.tel.telefon||"";
+  const inp=el("input",{type:"tel",id:"telNum",autocomplete:"tel",maxlength:"20",placeholder:"612 345 678",value:S.telVal??act,"aria-label":"El teu telèfon per a WhatsApp",oninput:e=>{S.telVal=e.target.value}});
+  box.append(el("h3",{class:"divtit",text:"El meu telèfon (WhatsApp)"}),el("div",{class:"card"},el("div",{class:"body"},
+    el("p",{class:"note",text:"Opcional. Només el veuen els altres capitans de la lliga, que et podran escriure per WhatsApp des de «Equips». No el veuen ni el públic ni els membres dels equips. Si no és d'Espanya, escriu-lo amb prefix (+33…)."}),
+    el("div",{class:"filtre"},inp,el("button",{class:"btn",type:"button",id:"telDesa",text:"Desa",onclick:desaTel}),act?el("button",{class:"btn",type:"button",id:"telEsborra",text:"Esborra",onclick:esborraTel}):""),
+    S.telMsg?el("div",{class:S.telMsg.ok?"oklist":"warnlist",id:"telMsg",text:S.telMsg.text}):"")));
+}
 function renderCapita(box){
+  if(AUTO&&meusEquips().length)renderTelefon(box);
   renderMembre(box);
   if(meusEquips().length)renderGestioMembres(box,meusEquips());
   box.append(el("hr"));
@@ -1716,6 +1744,8 @@ function pintaAuth(){
   else if(S.uid&&S.canWrite!==false)db.doc("solicituds/"+S.uid).onSnapshot(s=>{S.meva=s.exists?s.data():null;render()},()=>{});
   if(AUTO&&S.uid)col("alineacions","alineacions");
   if(AUTO&&S.uid)col("membres","membres",null);
+  if(AUTO&&S.uid)col("contactes","contactes",null);
+  if(AUTO&&S.uid)db.doc("telefons/"+S.uid).onSnapshot(s=>{S.tel=s.exists?s.data():null;render()},()=>{});
   if(AUTO&&S.uid)col("esborranys","esborranys",null);
   if(S.admin)db.doc("admin/avisos").onSnapshot(s=>{S.avisos=s.exists?s.data():null;render()},()=>{});
 })();
