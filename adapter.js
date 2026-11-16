@@ -46,6 +46,8 @@
       id: r.user_id, data: { equips: r.equips, nomDeclarat: r.nom_declarat, enviatAt: r.enviat_at, email: r.email } }));
     if (nom === "alineacions") return ck(await sb.from("alineacions").select("id,equip,eliminatoria,nom,data,updated_at").order("updated_at", { ascending: false })).map(r => ({
       id: r.id, data: { ...r.data, equip: r.equip, eliminatoria: r.eliminatoria, nom: r.nom, updatedAt: r.updated_at } }));
+    if (nom === "esborranys") return ck(await sb.from("esborranys").select("eliminatoria,data,actualitzat_per,actualitzat_at")).map(r => ({
+      id: r.eliminatoria, data: { ...r.data, actualitzatPer: r.actualitzat_per, actualitzatAt: r.actualitzat_at } }));
     throw new Error("col·lecció desconeguda: " + nom);
   }
   async function llegeixRols() {
@@ -90,11 +92,12 @@
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
     if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
       data: treu(d, ["equip", "eliminatoria", "nom", "updatedAt"]) }, { onConflict: "id" }));
+    if (c === "esborranys") return ck(await sb.from("esborranys").upsert({ eliminatoria: id, data: treu(d, ["actualitzatPer", "actualitzatAt"]) }, { onConflict: "eliminatoria" }));
     throw new Error("escriptura no permesa: " + path);
   }
   async function esborra(path) {
     const [c, id] = path.split("/");
-    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"] }[c];
+    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], esborranys: ["esborranys", "eliminatoria"] }[c];
     if (!t) throw new Error("esborrat no permès: " + path);
     ck(await sb.from(t[0]).delete().eq(t[1], id));
   }

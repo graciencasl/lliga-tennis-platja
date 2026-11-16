@@ -116,6 +116,12 @@ input,select,textarea{font:16px var(--body);color:var(--ink);background:var(--su
 .partit{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--soft)}
 .partit .ph{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:700;margin-bottom:8px}
 .sides{display:grid;grid-template-columns:1fr;gap:8px}
+.jbtns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+.jbtn{min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-align:left}
+.jbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.jbtn:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.jbtn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.torncard .ph{align-items:center;margin-bottom:6px}
 .side select{width:100%;margin-bottom:4px}
 .sets{display:grid;grid-template-columns:auto repeat(3,64px);gap:4px 8px;align-items:center;margin-top:8px}
 .sets input{width:64px;text-align:center}
@@ -211,6 +217,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
   <div class="actions" id="loginLinks"></div>
 </form></dialog>
 <dialog id="dlgEquip" aria-labelledby="dlgTitol"></dialog>
+<dialog id="dlgTorn" aria-labelledby="dlgTornTit"></dialog>
 <script>window.LCTP_CONFIG={url:"https://fcrlgspeywvfvxatydrg.supabase.co",key:"sb_publishable_SZnZtW5MsGYeL_2qb_74vw_5JaGU2dR"};window.LCTP_AUTH_PENDING=true;</script>
 <script src="supabase.js"></script>
 <script src="adapter.js"></script>
@@ -220,7 +227,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 const E=window.LligaEngine;
 const MESOS=["gener","febrer","març","abril","maig","juny","juliol","agost","setembre","octubre","novembre","desembre"];
 const deMes=m=>(/^[aeiou]/.test(m)?"d'":"de ")+m;
-const S={alineacions:{},lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
+const S={alineacions:{},esborranys:{},esbReintent:false,tornObert:null,lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
   admin:false,canWrite:null,db:null,assets:null,sample:null,imgOk:false,llegint:false,uid:null,user:null,rols:null,sol:{},meva:null,capSel:[],capNom:"",capMsg:null,noms:{},rolsMsg:null,cerca:{},filtre:(()=>{try{return localStorage.getItem("lctp.filtre")||""}catch(e){return ""}})(),
   loaded:{lliga:false,equips:false,calendari:false,validades:false},timeout:false,error:null,noDb:false,
   draft:null,editing:false,flash:null,busy:false,sorteigObert:null,equipObert:null,
@@ -867,14 +874,23 @@ function renderActaView(box){
   }
   box.append(el("div",{class:"state",text:"Encara no s'ha introduït l'acta d'aquesta eliminatòria."}));
   const acts=el("div",{class:"actions"});
+  const esb=potEnviar(f)?esborranyPer(f):null;
+  if(esb){
+    box.append(el("div",{class:"warnlist",id:"esb-trobat"},el("strong",{text:"Hi ha un esborrany d'aquesta acta"}),
+      ` desat ${esb.per?(esb.per===S.uid?"per tu":"per un altre capità de l'equip"):"en aquest dispositiu"} el ${dataHora(esb.t)}. Encara no compta per a res.`));
+    acts.append(el("button",{class:"btn",type:"button",id:"b-continua",text:"Continua l'esborrany",onclick:()=>{
+      S.draft=draftDesDeEsborrany(f,esb); S.draft.esbCarregat=`Esborrany carregat (desat el ${dataHora(esb.t)}).`; render(); if(esb.local)programaEsb()}}));
+    acts.append(el("button",{class:"btn danger",type:"button",id:"b-nou",text:"Comença de nou",onclick:()=>confirmar(box,"S'esborrarà l'esborrany per a tots els capitans de l'equip local i començaràs una acta en blanc.",async()=>{await descartaEsb(f);S.draft={...actaBuida(f),mode:"enviament",presel:{L:[],V:[]}}})}));
+  }
   if(!window.LCTP_PUBLIC&&!potEnviar(f)&&!S.admin)box.append(el("p",{class:"note",text:`L'acta la envia el capità o la capitana de l'equip local (${nomEq(f.local)}).`}));
-  if(potEnviar(f))acts.append(el("button",{class:"btn",type:"button",text:"Introduir l'acta",onclick:()=>{S.draft={...actaBuida(f),mode:"enviament"};render()}}));
+  if(potEnviar(f)&&!esb)acts.append(el("button",{class:"btn",type:"button",text:"Introduir l'acta",onclick:()=>{S.draft={...actaBuida(f),mode:"enviament",presel:{L:[],V:[]}};render()}}));
   if(S.admin)acts.append(el("button",{class:"btn sec",type:"button",text:"Registrar WO d'equip",onclick:()=>renderWO(box,f)}));
   box.append(acts);
 }
 function omplirDraft(d){ // deixa l'esborrany amb 3 files de sets i parelles de 2
   d.partits=d.partits.map(p=>({estat:p.estat,L:p.L||[null,null],V:p.V||[null,null],
     sets:[0,1,2].map(i=>p.sets&&p.sets[i]?p.sets[i].map(x=>Number.isFinite(x)?x:""):["",""])}));
+  d.presel=derivaPresel(d);
 }
 function renderActaRO(box,f,a){
   if(a.tipus==="wo_equip"){
@@ -930,26 +946,185 @@ async function llegeixActa(f,d,info,btn){
     const raw=await S.sample.json(promptLectura(f),{images:[d.fitxer],modelTier:"complex",cache:false});
     const r=E.sanejaLectura(raw,rosters(f));
     if(r.dataJoc)d.dataJoc=r.dataJoc;
-    d.partits=r.partits; d.lectura={dubtes:r.dubtes};
-    S.llegint=false; S.editing=false; render();
+    d.partits=r.partits; d.lectura={dubtes:r.dubtes}; d.presel=derivaPresel(d);
+    S.llegint=false; S.editing=false; render(); programaEsb();
   }catch(e){
     S.llegint=false; btn.disabled=false;
     info.textContent=(e&&e.code in ERR_LECTURA?ERR_LECTURA[e.code]:"No s'ha pogut llegir l'acta. Torna-ho a provar o omple-la a mà.");
   }
 }
+/* ---------- esborranys de l'acta (D65): versió provisional compartida amb els capitans del local ---------- */
+const ESB_CLAU=f=>"lctp.esb."+(S.uid||"-")+"."+f.id;
+const esbLocal=f=>{try{const x=JSON.parse(localStorage.getItem(ESB_CLAU(f))||"null");return x&&x.doc?x:null}catch(e){return null}};
+const esbEscriuLocal=(f,doc,t)=>{try{localStorage.setItem(ESB_CLAU(f),JSON.stringify({t,doc}))}catch(e){}};
+const esbEsborraLocal=f=>{try{localStorage.removeItem(ESB_CLAU(f))}catch(e){}};
+const esbActiu=d=>!!(AUTO&&S.uid&&d&&d.mode==="enviament"&&!S.actes[d.eliminatoria]&&!S.validades[d.eliminatoria]);
+const hora=t=>{const d=new Date(t);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
+const dataHora=t=>{const d=new Date(t);return `${d.getDate()} ${deMes(MESOS[d.getMonth()])} a les ${hora(t)}`};
+const docEsb=d=>({dataJoc:d.dataJoc||"",presel:{L:[...(d.presel?.L||[])],V:[...(d.presel?.V||[])]},arxiu:d.arxiu?{id:d.arxiu.id,nom:d.arxiu.nom}:null,
+  partits:d.partits.map(p=>({estat:p.estat,L:[...(p.L||[null,null])],V:[...(p.V||[null,null])],sets:(p.sets||[]).map(s=>[...s])}))});
+// L'esborrany més recent entre el del servidor i el guardat en aquest dispositiu (per si es va tancar sense connexió)
+function esborranyPer(f){
+  if(!AUTO||!S.uid)return null;
+  const sv=S.esborranys&&S.esborranys[f.id], lc=esbLocal(f), ts=sv?(Date.parse(sv.actualitzatAt)||0):0;
+  if(lc&&lc.t>ts)return {doc:lc.doc,t:lc.t,local:true};
+  if(sv){const {actualitzatPer,actualitzatAt,...doc}=sv;return {doc,t:ts,per:actualitzatPer}}
+  return null;
+}
+const derivaPresel=d=>{const r={L:[],V:[]};for(const c of["L","V"]){const s=new Set();d.partits.forEach(p=>(p[c]||[]).forEach(x=>{if(x!==""&&x!=null)s.add(Number(x))}));r[c]=[...s].sort((a,b)=>a-b)}return r};
+function draftDesDeEsborrany(f,e){
+  const b=actaBuida(f), doc=e.doc||{};
+  return {...b,mode:"enviament",dataJoc:doc.dataJoc||"",arxiu:doc.arxiu||null,presel:{L:[...(doc.presel?.L||[])],V:[...(doc.presel?.V||[])]},
+    partits:b.partits.map((p,i)=>{const q=(doc.partits||[])[i]||{};
+      return {estat:q.estat||"jugat",L:q.L&&q.L.length===2?[...q.L]:[null,null],V:q.V&&q.V.length===2?[...q.V]:[null,null],
+        sets:[0,1,2].map(k=>q.sets&&q.sets[k]?q.sets[k].map(x=>x==null?"":x):["",""])}})};
+}
+let tmrEsb=null;
+function pintaEsb(text){const e=document.getElementById("esb-estat");if(e)e.textContent=text}
+function programaEsb(){
+  const d=S.draft; if(!esbActiu(d))return;
+  esbEscriuLocal(elim(d.eliminatoria),docEsb(d),Date.now());
+  pintaEsb("Desant l'esborrany…"); clearTimeout(tmrEsb); tmrEsb=setTimeout(desaEsb,1200);
+}
+async function desaEsb(){
+  clearTimeout(tmrEsb); const d=S.draft; if(!esbActiu(d))return;
+  const f=elim(d.eliminatoria), doc=docEsb(d), t=Date.now(); esbEscriuLocal(f,doc,t);
+  try{await S.db.doc("esborranys/"+f.id).set(doc);S.esbReintent=false;pintaEsb(`Esborrany desat a les ${hora(t)}. Els capitans de l'equip local el poden continuar.`)}
+  catch(e){S.esbReintent=true;pintaEsb("Sense connexió: l'esborrany s'ha desat en aquest dispositiu i es tornarà a provar.")}
+}
+async function descartaEsb(f){
+  clearTimeout(tmrEsb); esbEsborraLocal(f);
+  try{await S.db.doc("esborranys/"+f.id).delete()}catch(e){}
+  if(S.esborranys)delete S.esborranys[f.id];
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&esbActiu(S.draft))desaEsb()});
+window.addEventListener("online",()=>{if(S.esbReintent&&esbActiu(S.draft))desaEsb()});
+window.addEventListener("pagehide",()=>{const d=S.draft;if(esbActiu(d))esbEscriuLocal(elim(d.eliminatoria),docEsb(d),Date.now())});
+
+/* ---------- formulari: jugadors de la jornada, tarja per torn i finestra de cada torn ---------- */
+const buitNum=x=>x===""||x==null;
+const parComplet=par=>(par||[]).filter(x=>!buitNum(x)).length===2;
+const parTxt=(eq,par)=>parComplet(par)?par.map(o=>nomJug(eq,Number(o))).join(" / "):"per triar";
+function resTxt(p){
+  if(p.estat==="wo_L")return "WO local"; if(p.estat==="wo_V")return "WO visitant";
+  const s=(p.sets||[]).filter((x,i)=>i<2?(!buitNum(x[0])||!buitNum(x[1])):(!buitNum(x[0])||!buitNum(x[1]))).map(x=>`${buitNum(x[0])?"·":x[0]}-${buitNum(x[1])?"·":x[1]}`).join(" ");
+  return (s||"sense resultat")+(p.estat.startsWith("retirada")?` (ret. ${p.estat.endsWith("L")?"local":"visitant"})`:"");
+}
+function tornEstat(d,t){
+  const ps=[d.partits[2*t],d.partits[2*t+1]];
+  const buit=ps.every(p=>!parComplet(p.L)&&!parComplet(p.V)&&(p.sets||[]).every(s=>buitNum(s[0])&&buitNum(s[1]))&&p.estat==="jugat");
+  if(buit)return "buit";
+  const ple=ps.every(p=>(p.estat==="wo_L"||p.estat==="wo_V"||(buitNum((p.sets[0]||[])[0])===false&&buitNum((p.sets[0]||[])[1])===false&&buitNum((p.sets[1]||[])[0])===false&&buitNum((p.sets[1]||[])[1])===false))&&(p.estat.startsWith("wo_")||(parComplet(p.L)&&parComplet(p.V))));
+  return ple?"complet":"incomplet";
+}
+function pintaTorns(){
+  const c=document.getElementById("torns"), d=S.draft; if(!c||!d)return;
+  const f=elim(d.eliminatoria); c.replaceChildren();
+  for(let t=0;t<3;t++){
+    const est=tornEstat(d,t);
+    const card=el("div",{class:"card torncard",id:`torn${t+1}`},el("div",{class:"body"}));
+    const cap=el("div",{class:"ph"},el("h3",{text:`Torn ${t+1}`,style:"margin:0"}),
+      el("span",{class:"pill"+(est==="complet"?"":" warn"),text:est==="complet"?"Complet":est==="buit"?"Per omplir":"Incomplet"}));
+    card.firstChild.append(cap);
+    [2*t,2*t+1].forEach(i=>{const p=d.partits[i],def=E.PARTITS[i];
+      card.firstChild.append(el("div",{class:"ro-partit"},
+        el("div",{},el("small",{text:E.etiqueta(def.L)+" · "}),parTxt(f.local,p.L)),el("div",{class:"s",text:resTxt(p)}),
+        el("div",{class:"r"},parTxt(f.visitant,p.V),el("small",{text:" · "+E.etiqueta(def.V)}))))});
+    card.firstChild.append(el("div",{class:"actions"},el("button",{class:"btn"+(est==="buit"?"":" sec"),type:"button",id:`b-torn${t+1}`,text:est==="buit"?`Omple el torn ${t+1}`:`Edita el torn ${t+1}`,onclick:()=>obreTorn(t)})));
+    c.append(card);
+  }
+}
+function renderPresel(form,f,d){
+  const R=rosters(f), card=el("div",{class:"card",id:"presel"},el("div",{class:"body"}));
+  card.firstChild.append(el("h3",{text:"Jugadors de la jornada",style:"margin-top:0"}),
+    el("p",{class:"note",text:"Marca els jugadors de cada equip que participen a l'eliminatòria (la relació que es lliura al capità rival; mínim 3 per equip). Als torns només podràs triar entre ells."}));
+  const av=el("p",{class:"note",id:"pre-av",role:"status"});
+  const sides=el("div",{class:"sides"});
+  for(const c of["L","V"]){
+    const eq=c==="L"?f.local:f.visitant, side=el("div",{class:"side"},el("label",{text:`${nomEq(eq)} (${c==="L"?"local":"visitant"})`})), bar=el("div",{class:"jbtns",id:`pre-${c}`}), n=el("span",{class:"note",id:`pre-${c}-n`});
+    const compta=()=>{const k=d.presel[c].length;n.textContent=`${k} seleccionat${k===1?"":"s"}${k<3?" (mínim 3)":""}`};
+    R[c].forEach(j=>{
+      const b=el("button",{type:"button",class:"jbtn",id:`pre-${c}-${j.ordre}`,"aria-pressed":String(d.presel[c].includes(j.ordre)),text:`${j.ordre}. ${nomCurt(eq,j)}`,onclick:()=>{
+        const i=d.presel[c].indexOf(j.ordre);
+        if(i>=0){
+          if(d.partits.some(p=>(p[c]||[]).some(x=>!buitNum(x)&&Number(x)===j.ordre))){av.textContent=`${nomCurt(eq,j)} ja és assignat a un torn: treu-lo del torn abans de desmarcar-lo.`;return}
+          d.presel[c].splice(i,1);
+        }else{d.presel[c].push(j.ordre);d.presel[c].sort((a,b)=>a-b)}
+        av.textContent=""; b.setAttribute("aria-pressed",String(d.presel[c].includes(j.ordre))); compta(); programaEsb();
+      }});
+      bar.append(b)});
+    compta(); side.append(bar,n); sides.append(side);
+  }
+  card.firstChild.append(sides,av); form.append(card);
+}
+function partitControls(f,d,i,refresca){
+  const p=d.partits[i], def=E.PARTITS[i], altre=d.partits[i^1];
+  const box2=el("div",{class:"partit",id:`p${i}`});
+  const estat=el("select",{id:`p${i}-estat`,onchange:e=>{p.estat=e.target.value;setsBox.hidden=p.estat.startsWith("wo_");programaEsb();actualitzaResum()}},
+    ...[["jugat","Jugat"],["retirada_L","Retirada de la parella local"],["retirada_V","Retirada de la parella visitant"],["wo_L","Local no present / no disputat (WO)"],["wo_V","Visitant no present / no disputat (WO)"]].map(([v,t])=>el("option",{value:v,text:t})));
+  estat.value=p.estat;
+  box2.append(el("div",{class:"ph"},el("span",{text:`Partit ${i+1}: Local ${E.etiqueta(def.L)} vs Visitant ${E.etiqueta(def.V)}`})));
+  box2.append(el("div",{class:"field"},el("label",{for:`p${i}-estat`,text:"Com va acabar"}),estat));
+  const sides=el("div",{class:"sides"});
+  for(const c of["L","V"]){
+    const eq=c==="L"?f.local:f.visitant, R=S.equips[eq]?.jugadors||[];
+    const triats=d.presel[c], usats=new Set([...(p[c]||[]),...(altre[c]||[])].filter(x=>!buitNum(x)).map(Number));
+    const pool=R.filter(j=>!triats.length||triats.includes(j.ordre)||usats.has(j.ordre));
+    const side=el("div",{class:"side"},el("label",{text:`${nomEq(eq)} (${E.etiqueta(def[c])})`}));
+    const bar=el("div",{class:"jbtns",role:"group","aria-label":`Parella ${c==="L"?"local":"visitant"} del partit ${i+1}`}), av=el("p",{class:"note",role:"status",id:`p${i}-${c}-av`});
+    const pinta=()=>bar.querySelectorAll("button").forEach(b=>{
+      const o=Number(b.dataset.o), sel=(p[c]||[]).some(x=>!buitNum(x)&&Number(x)===o), enAltre=(altre[c]||[]).some(x=>!buitNum(x)&&Number(x)===o);
+      b.setAttribute("aria-pressed",String(sel)); b.disabled=enAltre&&!sel; b.title=b.disabled?"Ja juga l'altre partit d'aquest torn":""});
+    pool.forEach(j=>bar.append(el("button",{type:"button",class:"jbtn",id:`p${i}-${c}-${j.ordre}`,"data-o":String(j.ordre),text:`${j.ordre}. ${nomCurt(eq,j)}`,onclick:()=>{
+      const k=(p[c]||[]).findIndex(x=>!buitNum(x)&&Number(x)===j.ordre);
+      if(k>=0){p[c][k]=null;av.textContent=""}
+      else{const lliure=p[c].findIndex(buitNum);if(lliure<0){av.textContent="Ja hi ha dos jugadors a la parella: desmarca'n un abans.";return}p[c][lliure]=j.ordre;av.textContent=""}
+      if(!d.presel[c].includes(j.ordre)){d.presel[c].push(j.ordre);d.presel[c].sort((a,b)=>a-b)}
+      refresca&&refresca(); programaEsb(); actualitzaResum();
+    }})));
+    side.append(bar,av); sides.append(side); box2._pinta=(box2._pinta||[]).concat(pinta);
+  }
+  box2.append(sides);
+  const setsBox=el("div",{class:"sets"},el("span"),el("span",{class:"h",text:"Set 1"}),el("span",{class:"h",text:"Set 2"}),el("span",{class:"h",text:"MTB"}));
+  for(const[c,k]of[["L",0],["V",1]]){
+    setsBox.append(el("span",{class:"note",style:"margin:0",text:c==="L"?"Local":"Visitant"}));
+    [0,1,2].forEach(si=>setsBox.append(el("input",{type:"number",inputmode:"numeric",min:"0",max:"30",id:`p${i}-s${si}${c}`,"aria-label":`Partit ${i+1}, ${si<2?"set "+(si+1):"match tie-break"}, ${c==="L"?"local":"visitant"}`,value:p.sets[si][k],
+      oninput:e=>{p.sets[si][k]=e.target.value;programaEsb();actualitzaResum()}})));
+  }
+  setsBox.hidden=p.estat.startsWith("wo_");
+  box2.append(setsBox); box2._pinta.forEach(fn=>fn());
+  return box2;
+}
+const dlgT=$("#dlgTorn");
+dlgT.addEventListener("close",()=>{S.tornObert=null;pintaTorns();actualitzaResum()});
+dlgT.addEventListener("click",e=>{if(e.target===dlgT)dlgT.close()});
+function obreTorn(t){
+  const d=S.draft; if(!d)return; const f=elim(d.eliminatoria); S.tornObert=t; dlgT.replaceChildren();
+  const cont=el("div",{class:"body"}), caixes=[];
+  const refresca=()=>caixes.forEach(b=>b._pinta.forEach(fn=>fn()));
+  cont.append(el("h2",{id:"dlgTornTit",text:`Torn ${t+1}`,style:"margin-top:0"}),
+    el("p",{class:"note",text:`${nomEq(f.local)} (local) – ${nomEq(f.visitant)} (visitant). Toca els dos jugadors de cada parella i anota el resultat; es desa tot sol.`}));
+  [2*t,2*t+1].forEach(i=>{const b=partitControls(f,d,i,refresca);caixes.push(b);cont.append(b)});
+  cont.append(el("div",{class:"actions"},
+    el("button",{class:"btn",type:"button",id:"b-tanca-torn",text:"Acaba",onclick:()=>dlgT.close()}),
+    t<2?el("button",{class:"btn sec",type:"button",id:"b-seguent-torn",text:`Següent: torn ${t+2}`,onclick:()=>{dlgT.close();obreTorn(t+1)}}):null));
+  dlgT.setAttribute("aria-labelledby","dlgTornTit"); dlgT.append(cont); if(!dlgT.open)dlgT.showModal();
+}
 function renderForm(box,f){
-  const d=S.draft; const R=rosters(f);
+  const d=S.draft;
+  if(!d.presel)d.presel=derivaPresel(d);
   S.editing=true;
   const titol=d.mode==="correccio"?"Correcció de l'acta validada":"Acta de resultats";
   box.append(el("h2",{text:titol,style:"margin-top:8px"}));
   box.append(el("p",{class:"note",text:"Mateixes dades que l'acta oficial: parelles de cada torn i resultat de cada partit. Equip A = local, equip B = visitant."}));
+  if(esbActiu(d))box.append(el("div",{class:"warnlist",id:"esb-av"},el("strong",{text:"Esborrany: "}),"es va desant tot sol i el pots continuar més tard, des d'aquest mòbil o un altre, o un altre capità de l'equip local. No compta per a res fins que l'enviïs."));
   if(d.lectura)box.append(el("div",{class:"warnlist",id:"lectura-av"},el("strong",{text:"Acta llegida automàticament: comprova-ho tot amb la foto abans d'enviar-la."}),
     d.lectura.dubtes.length?el("ul",{},...d.lectura.dubtes.map(t=>el("li",{text:t}))):el("p",{class:"note",text:"No ha marcat cap dubte, però la lectura pot tenir errors."})));
   const form=el("form",{novalidate:true,onsubmit:e=>e.preventDefault()});
   form.append(el("div",{class:"field"},el("label",{for:"f-data",text:"Data de joc"}),
-    el("input",{type:"date",id:"f-data",value:d.dataJoc||"",max:isoToday(),required:true,oninput:e=>{d.dataJoc=e.target.value;actualitzaResum()}})));
+    el("input",{type:"date",id:"f-data",value:d.dataJoc||"",max:isoToday(),required:true,oninput:e=>{d.dataJoc=e.target.value;programaEsb();actualitzaResum()}})));
   // arxiu escanejat
-  const arxiuInfo=el("span",{class:"note",text:d.arxiu?`Adjuntat: ${d.arxiu.nom||"acta"}`:"Opcional: PDF o foto de l'acta en paper (màx. ${window.LCTP_AUTH?10:20} MB)."});
+  const arxiuInfo=el("span",{class:"note",text:d.arxiu?`Adjuntat: ${d.arxiu.nom||"acta"}`:`Opcional: PDF o foto de l'acta en paper (màx. ${window.LCTP_AUTH?10:20} MB).`});
   const llegeixBtn=el("button",{class:"btn sec",type:"button",id:"b-llegeix",text:"Omple el formulari des de la foto",disabled:true,onclick:()=>llegeixActa(f,d,llegeixInfo,llegeixBtn)});
   const llegeixInfo=el("span",{class:"note",id:"llegeix-info"});
   const triaLectura=file=>{
@@ -963,63 +1138,43 @@ function renderForm(box,f){
     triaLectura(file);
     if(!S.assets){arxiuInfo.textContent="No tens permís per pujar arxius en aquesta pàgina.";return}
     arxiuInfo.textContent="Pujant…";
-    try{const up=await S.assets.upload(file);d.arxiu={id:up.id,url:up.url,nom:file.name};arxiuInfo.textContent=`Adjuntat: ${file.name}`}
+    try{const up=await S.assets.upload(file);d.arxiu={id:up.id,url:up.url,nom:file.name};arxiuInfo.textContent=`Adjuntat: ${file.name}`;programaEsb()}
     catch(err){arxiuInfo.textContent="No s'ha pogut pujar l'arxiu. Torna-ho a provar."}
   }});
   form.append(el("div",{class:"field"},el("label",{for:"f-arxiu",text:"Acta escanejada"}),fileIn,el("br"),arxiuInfo));
   if(S.sample&&S.imgOk){form.append(el("div",{class:"field"},llegeixBtn,el("br"),llegeixInfo));if(d.fitxer)triaLectura(d.fitxer)}
-  const opts=(eq)=>[el("option",{value:"",text:"— Jugador/a —"}),...(S.equips[eq]?.jugadors||[]).map(j=>el("option",{value:String(j.ordre),text:`${j.ordre}. ${nomCurt(eq,j)}`}))];
-  d.partits.forEach((p,i)=>{
-    const def=E.PARTITS[i];
-    if(i%2===0)form.append(el("div",{class:"torn"},el("h3",{text:`Torn ${def.torn}`})));
-    const box2=el("div",{class:"partit",id:`p${i}`});
-    const estat=el("select",{id:`p${i}-estat`,onchange:e=>{p.estat=e.target.value;setsBox.hidden=p.estat.startsWith("wo_");actualitzaResum()}},
-      ...[["jugat","Jugat"],["retirada_L","Retirada de la parella local"],["retirada_V","Retirada de la parella visitant"],["wo_L","Local no present / no disputat (WO)"],["wo_V","Visitant no present / no disputat (WO)"]].map(([v,t])=>el("option",{value:v,text:t})));
-    estat.value=p.estat;
-    box2.append(el("div",{class:"ph"},el("span",{text:`Partit ${i+1}: Local ${E.etiqueta(def.L)} vs Visitant ${E.etiqueta(def.V)}`})));
-    box2.append(el("div",{class:"field"},el("label",{for:`p${i}-estat`,text:"Com va acabar"}),estat));
-    const sides=el("div",{class:"sides"});
-    for(const c of ["L","V"]){
-      const eq=c==="L"?f.local:f.visitant;
-      const side=el("div",{class:"side"},el("label",{text:`${nomEq(eq)} (${E.etiqueta(def[c])})`}));
-      [0,1].forEach(k=>{const s=el("select",{id:`p${i}-${c}${k}`,"aria-label":`Partit ${i+1}, ${c==="L"?"local":"visitant"}, jugador ${k+1}`,onchange:e=>{p[c][k]=e.target.value===""?null:Number(e.target.value);actualitzaResum()}},...opts(eq));s.value=p[c][k]==null?"":String(p[c][k]);side.append(s)});
-      sides.append(side);
-    }
-    box2.append(sides);
-    const setsBox=el("div",{class:"sets"},el("span"),el("span",{class:"h",text:"Set 1"}),el("span",{class:"h",text:"Set 2"}),el("span",{class:"h",text:"MTB"}));
-    for(const[c,k]of[["L",0],["V",1]]){
-      setsBox.append(el("span",{class:"note",style:"margin:0",text:c==="L"?"Local":"Visitant"}));
-      [0,1,2].forEach(si=>setsBox.append(el("input",{type:"number",inputmode:"numeric",min:"0",max:"30",id:`p${i}-s${si}${c}`,"aria-label":`Partit ${i+1}, ${si<2?"set "+(si+1):"match tie-break"}, ${c==="L"?"local":"visitant"}`,value:p.sets[si][k],
-        oninput:e=>{p.sets[si][k]=e.target.value;actualitzaResum()}})));
-    }
-    setsBox.hidden=p.estat.startsWith("wo_");
-    box2.append(setsBox);
-    form.append(box2);
-  });
+  renderPresel(form,f,d);
+  form.append(el("div",{id:"torns"}));
   const resum=el("div",{id:"resum"});
   form.append(resum);
   if(AUTO&&!S.admin&&d.mode!=="correccio")form.append(el("p",{class:"note",text:"En enviar l'acta, el resultat compta a la classificació a l'instant. Revisa-la bé; si t'equivoques, la podràs corregir."}));
+  if(esbActiu(d))form.append(el("p",{class:"note",id:"esb-estat",role:"status",text:""}));
   const acts=el("div",{class:"actions"});
   if(d.mode==="correccio")acts.append(el("button",{class:"btn",type:"button",id:"b-desa",text:"Desar la correcció",onclick:()=>desar(f,"correccio")}));
   else{
     acts.append(el("button",{class:"btn",type:"button",id:"b-desa",text:S.admin?"Enviar (queda pendent)":"Enviar l'acta",onclick:()=>desar(f,"enviament")}));
     if(S.admin)acts.append(el("button",{class:"btn",type:"button",id:"b-valida",text:"Desar i validar",onclick:()=>desar(f,"valida")}));
   }
-  acts.append(el("button",{class:"btn sec",type:"button",text:"Cancel·lar",onclick:()=>{S.draft=null;S.editing=false;S.flash=null;render()}}));
+  if(esbActiu(d))acts.append(el("button",{class:"btn sec",type:"button",id:"b-esb",text:"Desa l'esborrany",onclick:()=>desaEsb()}));
+  acts.append(el("button",{class:"btn sec",type:"button",id:"b-cancel",text:esbActiu(d)?"Tanca (l'esborrany queda desat)":"Cancel·lar",onclick:async()=>{if(esbActiu(S.draft))await desaEsb();S.draft=null;S.editing=false;S.flash=null;render()}}));
+  if(esbActiu(d)&&(S.esborranys[f.id]||esbLocal(f)))acts.append(el("button",{class:"btn danger",type:"button",id:"b-descarta",text:"Descarta l'esborrany",onclick:()=>confirmar(box,"S'esborrarà l'esborrany per a tots els capitans de l'equip local.",async()=>{await descartaEsb(f);S.draft=null;S.editing=false})}));
   form.append(acts);
   box.append(form);
-  actualitzaResum();
+  pintaTorns(); actualitzaResum();
+  if(esbActiu(d)&&d.esbCarregat)pintaEsb(d.esbCarregat);
 }
 function actualitzaResum(){
   const d=S.draft, box=$("#resum"); if(!d||!box)return;
   const f=elim(d.eliminatoria); const a=normalitza(d);
   const chk=E.validarActa(a,rosters(f));
+  {const prev=box.querySelector("#resum-errors");if(prev)S.errObert=prev.open}
   box.replaceChildren();
   // resultat només amb partits que tenen guanyador clar
   let ok=true; try{a.partits.forEach(p=>{if(!p.estat.startsWith("wo_")&&(p.sets||[]).some(s=>!Number.isFinite(s[0])||!Number.isFinite(s[1])))ok=false})}catch(e){ok=false}
   if(ok){const r=E.resultatEliminatoria(a);box.append(el("div",{class:"result",text:`${nomEq(f.local)} ${r.partitsL} - ${r.partitsV} ${nomEq(f.visitant)}`}),
     el("p",{class:"note",style:"text-align:center",text:r.guanya?`Guanya ${nomEq(r.guanya==="L"?f.local:f.visitant)}`:"Empat"}))}
-  if(chk.errors.length)box.append(el("div",{class:"errlist"},el("strong",{text:`Cal corregir (${chk.errors.length})`}),el("ul",{},...chk.errors.map(e=>el("li",{text:e})))));
+  if(chk.errors.length){const dt=el("details",{class:"errlist",id:"resum-errors"},el("summary",{},el("strong",{text:`Cal corregir (${chk.errors.length})`})),el("ul",{},...chk.errors.map(e=>el("li",{text:e}))));
+    if(chk.errors.length<=4||S.errObert)dt.open=true; box.append(dt)}
   if(chk.avisos.length)box.append(el("div",{class:"warnlist"},el("strong",{text:"Avisos"}),el("ul",{},...chk.avisos.map(e=>el("li",{text:e})))));
   if(!chk.errors.length)box.append(el("div",{class:"oklist",text:"L'acta és completa i els resultats són vàlids."}));
   ["b-desa","b-valida"].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=chk.errors.length>0||S.busy});
@@ -1048,7 +1203,7 @@ async function desar(f,mode){
     ok=await guardar(()=>S.db.doc("actes/"+f.id).set(doc),mode==="valida"?null:(AUTO&&!S.admin?"Acta enviada. Ja compta a la classificació.":"Acta enviada. Queda pendent de validar per l'administrador."));
     if(ok&&mode==="valida")ok=await validar(f,doc,true);
   }
-  if(ok){S.draft=null;S.editing=false}
+  if(ok){const era=S.draft;S.draft=null;S.editing=false;if(AUTO&&era&&mode!=="correccio")await descartaEsb(f)}
   render();
 }
 async function validar(f,a,silenci){
@@ -1097,7 +1252,7 @@ function render(){
   const me=S.admin?[]:meusEquips(); $("#rolBadge").hidden=!me.length; $("#rolBadge").textContent=me.length?`${me.every(t=>t.startsWith("F-"))?"Capitana":"Capità"} de ${me.map(nomEq).join(", ")}`:"";
   const np=pendents().length; $("#tabValidacio").textContent=np?`Validació (${np})`:"Validació";
   const v=view(); const clau=v+location.hash;
-  if(clau!==ultimaVista){ if(ultimaVista!==null){S.flash=null;if(v!=="acta"||(S.draft&&("#acta-"+S.draft.eliminatoria)!==location.hash)){S.draft=null;S.editing=false}} ultimaVista=clau; }
+  if(clau!==ultimaVista){ if(ultimaVista!==null){S.flash=null;if(v!=="acta"||(S.draft&&("#acta-"+S.draft.eliminatoria)!==location.hash)){if(esbActiu(S.draft))desaEsb();S.draft=null;S.editing=false}} ultimaVista=clau; }
   document.querySelectorAll("nav.tabs a").forEach(a=>{if(a.dataset.view===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
   // No refem el formulari mentre s'està omplint (es perdria el focus); només s'actualitza el resum
   if(S.editing&&S.draft&&v==="acta"&&$("#resum")){actualitzaResum();return}
@@ -1113,7 +1268,7 @@ render();
 function pintaAuth(){
   const A=window.LCTP_AUTH, box=$("#authBox"); if(!A||!box)return; box.replaceChildren();
   const mail=A.email();
-  if(mail){box.append(el("span",{class:"pill",text:mail}),el("button",{class:"btn sec",type:"button",text:"Surt",onclick:async()=>{await A.surt()}}))}
+  if(mail){box.append(el("span",{class:"pill",text:mail}),el("button",{class:"btn sec",type:"button",text:"Surt",onclick:async()=>{if(esbActiu(S.draft))await desaEsb();await A.surt()}}))}
   else box.append(el("button",{class:"btn sec",type:"button",id:"btnEntra",text:"Entra",onclick:()=>{window.__loginMode("entra");$("#dlgLogin").showModal()}}));
 }
 (function(){
@@ -1207,6 +1362,7 @@ function pintaAuth(){
   if(S.admin)col("solicituds","sol",null);
   else if(S.uid&&S.canWrite!==false)db.doc("solicituds/"+S.uid).onSnapshot(s=>{S.meva=s.exists?s.data():null;render()},()=>{});
   if(AUTO&&S.uid)col("alineacions","alineacions");
+  if(AUTO&&S.uid)col("esborranys","esborranys",null);
   if(S.admin)db.doc("admin/avisos").onSnapshot(s=>{S.avisos=s.exists?s.data():null;render()},()=>{});
 })();
 </script>
