@@ -31,8 +31,20 @@
   const uid = () => (session && session.user ? session.user.id : null);
 
   /* ---------- lectura ---------- */
+  let privatOk = false;
+  const fusiona = (d, p) => {
+    if (!p) return d;
+    const per = {}; (p.jugadors || []).forEach(j => { per[j.ordre] = j; });
+    return { ...d, capitans: p.capitans || [], jugadors: (d.jugadors || []).map(j => per[j.ordre] ? { ...j, nom: per[j.ordre].nom, cognoms: per[j.ordre].cognoms, llicencia: per[j.ordre].llicencia } : j) };
+  };
   async function llegeixColeccio(nom) {
-    if (nom === "equips") return ck(await sb.from("equips").select("id,data")).map(r => ({ id: r.id, data: r.data }));
+    if (nom === "equips") {
+      const rows = ck(await sb.from("equips").select("id,data")); const priv = {};
+      /* nombres y licencias (D69): solo los devuelve la base de datos a capitanes, miembros aprobados y administrador */
+      if (session) { const p = await sb.from("equips_privat").select("id,data"); if (!p.error) (p.data || []).forEach(r => { priv[r.id] = r.data; }); }
+      privatOk = Object.keys(priv).length > 0;
+      return rows.map(r => ({ id: r.id, data: fusiona(r.data, priv[r.id]) }));
+    }
     if (nom === "calendari") {
       const rows = ck(await sb.from("eliminatories").select("id,divisio,jornada,data,local,visitant").order("divisio").order("jornada").order("id"));
       const g = {}; rows.forEach(r => { (g[r.divisio] = g[r.divisio] || { divisio: r.divisio, eliminatories: [] }).eliminatories.push({ id: r.id, jornada: r.jornada, data: r.data, local: r.local, visitant: r.visitant }); });
@@ -44,8 +56,8 @@
       id: r.eliminatoria, data: { ...r.data, eliminatoria: r.eliminatoria, estat: r.estat, ...(r.motiu ? { motiu: r.motiu } : {}), enviadaPer: r.enviada_per, enviadaAt: r.enviada_at } }));
     if (nom === "solicituds") return ck(await sb.from("solicituds").select("user_id,equips,nom_declarat,enviat_at,email")).map(r => ({
       id: r.user_id, data: { equips: r.equips, nomDeclarat: r.nom_declarat, enviatAt: r.enviat_at, email: r.email } }));
-    if (nom === "membres") return ck(await sb.from("membres").select("user_id,equip,jugador,aprovat,email,enviat_at")).map(r => ({
-      id: r.user_id, data: { equip: r.equip, jugador: r.jugador, aprovat: r.aprovat, email: r.email, enviatAt: r.enviat_at } }));
+    if (nom === "membres") return ck(await sb.from("membres").select("user_id,equip,jugador,aprovat,email,enviat_at,nom_declarat")).map(r => ({
+      id: r.user_id, data: { equip: r.equip, jugador: r.jugador, aprovat: r.aprovat, email: r.email, enviatAt: r.enviat_at, nomDeclarat: r.nom_declarat } }));
     if (nom === "alineacions") return ck(await sb.from("alineacions").select("id,equip,eliminatoria,nom,data,updated_at").order("updated_at", { ascending: false })).map(r => ({
       id: r.id, data: { ...r.data, equip: r.equip, eliminatoria: r.eliminatoria, nom: r.nom, updatedAt: r.updated_at } }));
     if (nom === "esborranys") return ck(await sb.from("esborranys").select("eliminatoria,data,actualitzat_per,actualitzat_at")).map(r => ({
@@ -92,7 +104,7 @@
       eliminatoria: id, local: "", estat: d.estat || "pendent", motiu: d.motiu || null,
       data: treu({ ...d, ...(d.arxiu ? { arxiu: treu(d.arxiu, ["url"]) } : {}) }, ["estat", "motiu", "enviadaAt", "enviadaPer", "eliminatoria"]) }, { onConflict: "eliminatoria" }));
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
-    if (c === "membres") return ck(await sb.from("membres").upsert({ user_id: id, equip: d.equip, jugador: d.jugador, aprovat: !!d.aprovat }, { onConflict: "user_id" }));
+    if (c === "membres") return ck(await sb.from("membres").upsert({ user_id: id, equip: d.equip, jugador: d.jugador == null ? null : d.jugador, aprovat: !!d.aprovat, nom_declarat: d.nomDeclarat || null }, { onConflict: "user_id" }));
     if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
       data: treu(d, ["equip", "eliminatoria", "nom", "updatedAt"]) }, { onConflict: "id" }));
     if (c === "esborranys") return ck(await sb.from("esborranys").upsert({ eliminatoria: id, data: treu(d, ["actualitzatPer", "actualitzatAt"]) }, { onConflict: "eliminatoria" }));
@@ -107,7 +119,7 @@
 
   /* ---------- subscripcions (lectura periòdica) ---------- */
   const oients = new Set(); let enCurs = false;
-  const CANVIANT = p => !["lliga/config", "equips", "calendari"].includes(p);
+  const CANVIANT = p => p === "equips" ? (!!session && !privatOk) : !["lliga/config", "calendari"].includes(p);   /* con sesión y sin datos personales aún, se vuelve a mirar (por si te aprueban como miembro) */
   async function executa(o, forca) {
     if (!forca && o.fet && !CANVIANT(o.path)) return;
     try {
