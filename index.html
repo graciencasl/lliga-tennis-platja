@@ -120,6 +120,28 @@ input,select,textarea{font:16px var(--body);color:var(--ink);background:var(--su
 .jbtn{min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-align:left}
 .jbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .jbtn:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.jpick .jbtns{margin:8px 0 0}
+.jpick .jbtn{min-width:76px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.15}
+.jpick .jbtn small{font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.02em;min-height:.8rem}
+.jpick .jbtn.ult{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.jpick .jbtn.seg{border:2px solid var(--accent);padding:7px 11px}
+#dlgJornada{touch-action:pan-y}
+.jnav{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:48px 1fr 48px;align-items:center;gap:6px;padding:10px;background:var(--surface);border-bottom:2px solid var(--line)}
+.jnav .tit{text-align:center}
+.jnav h2{font:700 1.3rem var(--display);text-transform:uppercase;margin:0}
+.jnav .btn{min-width:48px;min-height:44px;padding:0;font-size:1.4rem;line-height:1}
+.jnav .btn:disabled{opacity:.35;cursor:not-allowed}
+.jnav .sub{margin:2px 0 0;font-size:.85rem;color:var(--muted)}
+.jbody{padding:12px}
+.jbody .jornada{margin-bottom:10px}
+.jbody .jhead h3{display:none}
+.jbody.slide-next{animation:jnext .18s ease-out}
+.jbody.slide-prev{animation:jprev .18s ease-out}
+@keyframes jnext{from{transform:translateX(28px);opacity:.2}to{transform:none;opacity:1}}
+@keyframes jprev{from{transform:translateX(-28px);opacity:.2}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.jbody.slide-next,.jbody.slide-prev{animation:none}}
+.jfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 12px 12px}
+.jfoot .note{margin:0}
 .jbtn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .torncard .ph{align-items:center;margin-bottom:6px}
 .side select{width:100%;margin-bottom:4px}
@@ -222,6 +244,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 </form></dialog>
 <dialog id="dlgEquip" aria-labelledby="dlgTitol"></dialog>
 <dialog id="dlgTorn" aria-labelledby="dlgTornTit"></dialog>
+<dialog id="dlgJornada" aria-labelledby="dlgJornadaTit"></dialog>
 <script>window.LCTP_CONFIG={url:"https://fcrlgspeywvfvxatydrg.supabase.co",key:"sb_publishable_SZnZtW5MsGYeL_2qb_74vw_5JaGU2dR"};window.LCTP_AUTH_PENDING=true;</script>
 <script src="supabase.js"></script>
 <script src="adapter.js"></script>
@@ -234,7 +257,7 @@ const deMes=m=>(/^[aeiou]/.test(m)?"d'":"de ")+m;
 const S={alineacions:{},esborranys:{},esbReintent:false,tornObert:null,lliga:null,equips:{},calendari:{},validades:{},actes:{},sortejos:{},avisos:null,
   admin:false,canWrite:null,db:null,assets:null,sample:null,imgOk:false,llegint:false,uid:null,user:null,rols:null,sol:{},meva:null,capSel:[],capNom:"",capMsg:null,noms:{},rolsMsg:null,cerca:{},filtre:(()=>{try{return localStorage.getItem("lctp.filtre")||""}catch(e){return ""}})(),
   loaded:{lliga:false,equips:false,calendari:false,validades:false},timeout:false,error:null,noDb:false,
-  draft:null,editing:false,flash:null,busy:false,sorteigObert:null,equipObert:null,
+  draft:null,editing:false,flash:null,busy:false,sorteigObert:null,equipObert:null,jornadaOberta:null,
   div:(()=>{try{return localStorage.getItem("lctp.div")}catch(e){return null}})()};
 const $=s=>document.querySelector(s);
 const el=(tag,attrs={},...kids)=>{const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k==="class")n.className=v;else if(k==="text")n.textContent=v;else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);else n.setAttribute(k,v===true?"":v)}for(const k of kids)if(k!=null&&k!==false)n.append(k);return n};
@@ -359,30 +382,88 @@ function estatElim(f){
   if(foraTermini(f))return {chip:el("span",{class:"chipst bad",text:"Sense resultat (+15 dies)"})};
   return {};
 }
+/* ---------- jornades: targeta, botons de selecció i finestra amb lliscament (D67) ---------- */
+function jornadaCard(j,jm,proxima){
+  const card=el("article",{class:"jornada"+(proxima?" next":""),id:proxima!==null&&proxima!==undefined?`${currentDiv().id}-J${j.num}`:null});
+  const h=el("h3",{text:`Jornada ${j.num}`}); if(proxima)h.append(el("span",{class:"tag",text:"Propera"}));
+  card.append(el("div",{class:"jhead"},h,el("span",{class:"when",text:"Cap de setmana: "+capSetmana(j.data)})));
+  for(const m of jm){
+    const L=S.equips[m.local],st=estatElim(m);
+    const mid=st.r?el("span",{class:"score",text:`${st.r.partitsL} - ${st.r.partitsV}`}):el("span",{class:"vs",text:"vs"});
+    const row=el("a",{class:"match",href:"#acta-"+m.id},
+      el("div",{class:"team"+(st.r?.guanya==="L"?" win":"")},nomEq(m.local),el("small",{text:"Local"})),mid,
+      el("div",{class:"team away"+(st.r?.guanya==="V"?" win":"")},nomEq(m.visitant),el("small",{text:"Visitant"})));
+    const meta=el("div",{class:"meta"});
+    if(st.v&&st.v.dataJoc)meta.append(el("span",{},"Jugada el ",el("b",{text:dataLlarga(st.v.dataJoc)})));
+    else if(L?.horari)meta.append(el("span",{},"Dia oficial: ",el("b",{text:diaOficial(m.data,L.horari)})),el("span",{text:"Pistes de "+clubNom(L.club)}));
+    if(st.chip)meta.append(st.chip);
+    row.append(meta); card.append(row);
+  }
+  return card;
+}
+// Última jornada jugada (la més alta amb algun resultat validat) i la següent
+function jornadaMarques(d,cal){
+  const jug=d.jornades.filter(j=>cal.eliminatories.some(x=>x.jornada===j.num&&S.validades[x.id])).map(j=>j.num);
+  const ult=jug.length?Math.max(...jug):0, seg=d.jornades.find(j=>j.num>ult);
+  return {ult,seg:seg?seg.num:null};
+}
+const jornadesDe=(d,cal)=>d.jornades.filter(j=>cal.eliminatories.some(x=>x.jornada===j.num));
+function pickerJornades(d,cal){
+  const {ult,seg}=jornadaMarques(d,cal), row=el("div",{class:"jbtns",role:"group","aria-label":"Jornades"});
+  for(const j of jornadesDe(d,cal))row.append(el("button",{type:"button",class:"jbtn"+(j.num===ult?" ult":j.num===seg?" seg":""),id:`jb-${j.num}`,
+    "aria-haspopup":"dialog","aria-label":`Jornada ${j.num}`+(j.num===ult?" (última jugada)":j.num===seg?" (següent)":""),onclick:()=>obreJornada(j.num)},
+    el("span",{text:`J${j.num}`}),el("small",{text:j.num===ult?"Última":j.num===seg?"Següent":""})));
+  return el("div",{class:"card jpick"},el("div",{class:"body"},el("strong",{text:"Vés a una jornada"}),
+    el("p",{class:"note",style:"margin:2px 0 0",text:"S'obre en una finestra i hi pots lliscar a banda i banda per canviar de jornada. Plena: última jugada · contorn: la següent."}),row));
+}
+const dlgJ=$("#dlgJornada");
+function obreJornada(num){S.jornadaOberta=num;omplirJornada(null);if(!dlgJ.open)dlgJ.showModal()}
+function canviaJornada(dir){
+  const d=currentDiv(), cal=S.calendari[d.id]; if(!cal)return;
+  const js=jornadesDe(d,cal), i=js.findIndex(j=>j.num===S.jornadaOberta), n=js[i+dir];
+  if(!n)return; S.jornadaOberta=n.num; omplirJornada(dir>0?"next":"prev");
+}
+function omplirJornada(anim){
+  const d=currentDiv(), cal=S.calendari[d.id]; if(!cal){dlgJ.close();return}
+  const js=jornadesDe(d,cal), i=js.findIndex(j=>j.num===S.jornadaOberta); if(i<0){dlgJ.close();return}
+  const j=js[i], {ult,seg}=jornadaMarques(d,cal);
+  const sc=dlgJ.scrollTop; dlgJ.replaceChildren();
+  const marques=[j.num===ult?"última jugada":null,j.num===seg?"següent":null].filter(Boolean).join(" · ");
+  dlgJ.append(el("div",{class:"jnav"},
+    el("button",{type:"button",class:"btn sec",id:"j-prev","aria-label":"Jornada anterior",text:"‹",disabled:i===0,onclick:()=>canviaJornada(-1)}),
+    el("div",{class:"tit"},el("h2",{id:"dlgJornadaTit",text:`Jornada ${j.num}`}),el("p",{class:"sub",text:`${abrevDiv(d)} · ${i+1} de ${js.length}${marques?" · "+marques:""}`})),
+    el("button",{type:"button",class:"btn sec",id:"j-next","aria-label":"Jornada següent",text:"›",disabled:i===js.length-1,onclick:()=>canviaJornada(1)})));
+  const body=el("div",{class:"jbody"+(anim?" slide-"+anim:""),id:"j-cos"},jornadaCard(j,cal.eliminatories.filter(x=>x.jornada===j.num),null));
+  dlgJ.append(body,el("div",{class:"jfoot"},el("span",{class:"note",text:"Llisca cap a l'esquerra o la dreta (o fes servir les fletxes)."}),el("button",{type:"button",class:"btn sec",id:"j-tanca",text:"Tanca",onclick:()=>dlgJ.close()})));
+  dlgJ.scrollTop=anim?0:sc;
+}
+dlgJ.addEventListener("close",()=>{S.jornadaOberta=null});
+dlgJ.addEventListener("click",e=>{if(e.target===dlgJ)dlgJ.close()});
+document.addEventListener("keydown",e=>{if(!dlgJ.open)return;if(e.key==="ArrowLeft"){canviaJornada(-1);e.preventDefault()}else if(e.key==="ArrowRight"){canviaJornada(1);e.preventDefault()}});
+(function(){
+  let sx=null,sy=null;
+  dlgJ.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse")return;sx=e.clientX;sy=e.clientY});
+  dlgJ.addEventListener("pointercancel",()=>{sx=sy=null});
+  dlgJ.addEventListener("pointerup",e=>{
+    if(sx==null)return; const dx=e.clientX-sx, dy=e.clientY-sy; sx=sy=null;
+    if(Math.abs(dx)>=60&&Math.abs(dx)>1.5*Math.abs(dy))canviaJornada(dx<0?1:-1);   // cap a l'esquerra: la jornada següent
+  });
+})();
+function actualitzaJornada(){
+  if(!dlgJ.open)return;
+  if(view()!=="calendari"||S.jornadaOberta==null){dlgJ.close();return}
+  omplirJornada(null);
+}
 function renderCalendari(box){
   const d=currentDiv(); const cal=S.calendari[d.id]; if(!cal){box.append(el("div",{class:"state",text:"No hi ha calendari per a aquesta divisió."}));return}
   box.append(el("p",{class:"note",text:`${d.nom} · ${d.equips.length} equips · ${d.voltes===2?"dues voltes":"una volta"}. El primer equip és el local; es juga a les seves pistes i en el seu dia i hora oficials. Toca una eliminatòria per veure'n o introduir-ne l'acta.`}));
   box.append(filtreBar(d));
+  box.append(pickerJornades(d,cal));
   const t=today(); const next=d.jornades.find(j=>parseISO(j.data)>=addDays(t,-1));
   for(const j of d.jornades){
     const jm=cal.eliminatories.filter(x=>x.jornada===j.num&&(filtreCoincideix(d,x.local)||filtreCoincideix(d,x.visitant)));
     if(!jm.length)continue;
-    const card=el("article",{class:"jornada"+(next&&next.num===j.num?" next":""),id:`${d.id}-J${j.num}`});
-    const h=el("h3",{text:`Jornada ${j.num}`}); if(next&&next.num===j.num)h.append(el("span",{class:"tag",text:"Propera"}));
-    card.append(el("div",{class:"jhead"},h,el("span",{class:"when",text:"Cap de setmana: "+capSetmana(j.data)})));
-    for(const m of jm){
-      const L=S.equips[m.local],st=estatElim(m);
-      const mid=st.r?el("span",{class:"score",text:`${st.r.partitsL} - ${st.r.partitsV}`}):el("span",{class:"vs",text:"vs"});
-      const row=el("a",{class:"match",href:"#acta-"+m.id},
-        el("div",{class:"team"+(st.r?.guanya==="L"?" win":"")},nomEq(m.local),el("small",{text:"Local"})),mid,
-        el("div",{class:"team away"+(st.r?.guanya==="V"?" win":"")},nomEq(m.visitant),el("small",{text:"Visitant"})));
-      const meta=el("div",{class:"meta"});
-      if(st.v&&st.v.dataJoc)meta.append(el("span",{},"Jugada el ",el("b",{text:dataLlarga(st.v.dataJoc)})));
-      else if(L?.horari)meta.append(el("span",{},"Dia oficial: ",el("b",{text:diaOficial(m.data,L.horari)})),el("span",{text:"Pistes de "+clubNom(L.club)}));
-      if(st.chip)meta.append(st.chip);
-      row.append(meta); card.append(row);
-    }
-    box.append(card);
+    box.append(jornadaCard(j,jm,!!(next&&next.num===j.num)));
   }
   box.append(el("p",{class:"note",text:"Si els capitans pacten un altre dia, l'eliminatòria s'ha de jugar dins dels 15 dies següents a la data prevista (Reglament, apartat j)."}));
 }
@@ -1103,7 +1184,7 @@ function partitControls(f,d,i,refresca){
   /* Sets: desplegable 0-7. El número que es tria és el del perdedor del set i el de l'altre equip es calcula (0-4 -> 6, 5 -> 7, 6 -> 7).
      Si es tria 7 (guanyador), l'altre ha de ser 5 o 6. El tie-break del set (només 7-6) i el match tie-break (sense límit) s'escriuen amb el teclat (D66). */
   if(!p.tb)p.tb=[["",""],["",""]];
-  const perdut=v=>v<=4?6:7, selS=[[],[]], tbIn=[[],[]];
+  const perdut=v=>v<=4?6:7, selS=[[],[]], tbIn=[[],[]], mtbIn=[], mtbAuto=[false,false];
   const setsBox=el("div",{class:"sets"},el("span"),el("span",{class:"h",text:"Set 1"}),el("span",{class:"h",text:"Set 2"}),el("span",{class:"h",text:"MTB"}));
   const tbWrap=el("div",{class:"tbs"});
   const actualitzaTb=si=>{
@@ -1125,8 +1206,15 @@ function partitControls(f,d,i,refresca){
       const s=el("select",{id:`p${i}-s${si}${c}`,"aria-label":`Partit ${i+1}, set ${si+1}, ${c==="L"?"local":"visitant"}`,onchange:e=>canviSet(si,k,e.target.value)},
         ...["","0","1","2","3","4","5","6","7"].map(v=>el("option",{value:v,text:v===""?"–":v})));
       s.value=String(p.sets[si][k]??""); selS[si][k]=s; setsBox.append(s)});
-    setsBox.append(el("input",{type:"number",inputmode:"numeric",min:"0",id:`p${i}-s2${c}`,"aria-label":`Partit ${i+1}, match tie-break, ${c==="L"?"local":"visitant"}`,value:p.sets[2][k],
-      oninput:e=>{p.sets[2][k]=e.target.value;programaEsb();actualitzaResum()}}));
+    const mi=el("input",{type:"number",inputmode:"numeric",min:"0",id:`p${i}-s2${c}`,"aria-label":`Partit ${i+1}, match tie-break, ${c==="L"?"local":"visitant"}`,value:p.sets[2][k],
+      oninput:e=>{
+        /* el que s'escriu és el del perdedor: l'altre es calcula (fins a 8 -> 10; a partir de 9, +2). Només es toca l'altre camp si és buit o calculat. */
+        const val=e.target.value, o=1-k; p.sets[2][k]=val; mtbAuto[k]=false;
+        const x=Number(val), buit=v=>v===""||v==null;
+        if(val===""){if(mtbAuto[o]){p.sets[2][o]="";mtbIn[o].value="";mtbAuto[o]=false}}
+        else if(Number.isInteger(x)&&x>=0&&(buit(p.sets[2][o])||mtbAuto[o])){const g=String(x<=8?10:x+2);p.sets[2][o]=g;mtbIn[o].value=g;mtbAuto[o]=true}
+        programaEsb();actualitzaResum()}});
+    mtbIn[k]=mi; setsBox.append(mi);
   }
   [0,1].forEach(si=>{
     const row=el("div",{class:"tbrow"},el("span",{class:"note",text:`Tie-break del set ${si+1} (opcional):`}));
@@ -1300,7 +1388,7 @@ function confirmar(box,text,fn){
 let ultimaVista=null;
 function render(){
   if(S.lliga)$("#temporada").textContent="Temporada "+S.lliga.temporada;
-  actualitzaFinestra();
+  actualitzaFinestra(); actualitzaJornada();
   $("#adminBadge").hidden=!S.admin; $("#tabAvisos").hidden=!S.admin; $("#tabValidacio").hidden=!S.admin; $("#tabRols").hidden=!S.admin; $("#tabCapita").hidden=!(!S.admin&&S.db&&S.uid&&S.canWrite!==false); $("#tabEstad").hidden=!potEstad();
   const me=S.admin?[]:meusEquips(); $("#rolBadge").hidden=!me.length; $("#rolBadge").textContent=me.length?`${me.every(t=>t.startsWith("F-"))?"Capitana":"Capità"} de ${me.map(nomEq).join(", ")}`:"";
   const np=pendents().length; $("#tabValidacio").textContent=np?`Validació (${np})`:"Validació";
