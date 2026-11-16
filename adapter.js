@@ -44,6 +44,8 @@
       id: r.eliminatoria, data: { ...r.data, eliminatoria: r.eliminatoria, estat: r.estat, ...(r.motiu ? { motiu: r.motiu } : {}), enviadaPer: r.enviada_per, enviadaAt: r.enviada_at } }));
     if (nom === "solicituds") return ck(await sb.from("solicituds").select("user_id,equips,nom_declarat,enviat_at,email")).map(r => ({
       id: r.user_id, data: { equips: r.equips, nomDeclarat: r.nom_declarat, enviatAt: r.enviat_at, email: r.email } }));
+    if (nom === "membres") return ck(await sb.from("membres").select("user_id,equip,jugador,aprovat,email,enviat_at")).map(r => ({
+      id: r.user_id, data: { equip: r.equip, jugador: r.jugador, aprovat: r.aprovat, email: r.email, enviatAt: r.enviat_at } }));
     if (nom === "alineacions") return ck(await sb.from("alineacions").select("id,equip,eliminatoria,nom,data,updated_at").order("updated_at", { ascending: false })).map(r => ({
       id: r.id, data: { ...r.data, equip: r.equip, eliminatoria: r.eliminatoria, nom: r.nom, updatedAt: r.updated_at } }));
     if (nom === "esborranys") return ck(await sb.from("esborranys").select("eliminatoria,data,actualitzat_per,actualitzat_at")).map(r => ({
@@ -90,6 +92,7 @@
       eliminatoria: id, local: "", estat: d.estat || "pendent", motiu: d.motiu || null,
       data: treu({ ...d, ...(d.arxiu ? { arxiu: treu(d.arxiu, ["url"]) } : {}) }, ["estat", "motiu", "enviadaAt", "enviadaPer", "eliminatoria"]) }, { onConflict: "eliminatoria" }));
     if (c === "solicituds") return ck(await sb.from("solicituds").upsert({ user_id: id, equips: d.equips, nom_declarat: d.nomDeclarat }, { onConflict: "user_id" }));
+    if (c === "membres") return ck(await sb.from("membres").upsert({ user_id: id, equip: d.equip, jugador: d.jugador, aprovat: !!d.aprovat }, { onConflict: "user_id" }));
     if (c === "alineacions") return ck(await sb.from("alineacions").upsert({ id, equip: d.equip, eliminatoria: d.eliminatoria || null, nom: d.nom,
       data: treu(d, ["equip", "eliminatoria", "nom", "updatedAt"]) }, { onConflict: "id" }));
     if (c === "esborranys") return ck(await sb.from("esborranys").upsert({ eliminatoria: id, data: treu(d, ["actualitzatPer", "actualitzatAt"]) }, { onConflict: "eliminatoria" }));
@@ -97,7 +100,7 @@
   }
   async function esborra(path) {
     const [c, id] = path.split("/");
-    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], esborranys: ["esborranys", "eliminatoria"] }[c];
+    const t = { validades: ["validades", "eliminatoria"], solicituds: ["solicituds", "user_id"], actes: ["actes", "eliminatoria"], alineacions: ["alineacions", "id"], membres: ["membres", "user_id"], esborranys: ["esborranys", "eliminatoria"] }[c];
     if (!t) throw new Error("esborrat no permès: " + path);
     ck(await sb.from(t[0]).delete().eq(t[1], id));
   }
